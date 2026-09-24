@@ -2,7 +2,7 @@
 
 Marketplace brasileiro para organizar e contratar serviços de festas e eventos. O cliente informa **onde e quando** será a festa, compara fornecedores da região, vê catálogo e preços, pede orçamento ou contrata, e acompanha o pedido. Fornecedores têm painel próprio; a administração aprova, modera e configura a comissão.
 
-> Frase: *Organize sua festa de forma rápida e fácil.* · Identidade: azul `#2956D9`, laranja `#FF7C00`.
+> *Organize sua festa de forma rápida e fácil.* · Identidade: azul `#2956D9`, laranja `#FF7C00`.
 
 ## Demonstração online (GitHub Pages)
 
