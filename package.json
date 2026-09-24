@@ -1,0 +1,15 @@
+{
+  "name": "agitae",
+  "version": "0.1.0",
+  "description": "Agitaê — marketplace brasileiro de serviços para festas e eventos",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "seed": "node server/seed.js --reset",
+    "test": "node --test test/*.test.js",
+    "backup": "node scripts/backup.js"
+  }
+}
