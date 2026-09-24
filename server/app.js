@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HttpError, sha256 } from './util.js';
 import { buildRoutes } from './routes.js';
+import { localize } from './i18n/index.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.webmanifest': 'application/manifest+json' };
@@ -67,6 +68,7 @@ export function createApp(db, { uploadDir }) {
     const url = new URL(req.url, 'http://x');
     const ip = req.socket.remoteAddress || '';
     let status = 500;
+    const lang = req.headers['x-lang'] === 'en' ? 'en' : 'pt';
     try {
       if (!url.pathname.startsWith('/api/')) {
         if (url.pathname.startsWith('/img/')) { const r = routes.image(url); res.writeHead(200, headers({ 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=86400' })); res.end(r); status = 200; return; }
@@ -91,12 +93,12 @@ export function createApp(db, { uploadDir }) {
       const ctx = { db, req, res, user, params: route.params, query: Object.fromEntries(url.searchParams), body, raw, ip, status: 200, headers: {} };
       const out = await route.handler(ctx);
       status = ctx.status;
-      send(res, ctx.status, out ?? { ok: true }, ctx.headers);
+      send(res, ctx.status, localize(out ?? { ok: true }, lang), ctx.headers);
     } catch (e) {
       const known = e instanceof HttpError;
       status = known ? e.status : 500;
       if (!known) console.error(JSON.stringify({ level: 'error', msg: e.message, stack: e.stack, path: url.pathname }));
-      if (!res.headersSent) send(res, status, { error: known ? e.message : 'Erro interno. Tente novamente em instantes.', details: known ? e.details : undefined });
+      if (!res.headersSent) send(res, status, localize({ error: known ? e.message : 'Erro interno. Tente novamente em instantes.', details: known ? e.details : undefined }, lang));
     } finally {
       if (process.env.NODE_ENV !== 'test') console.log(JSON.stringify({ level: 'info', method: req.method, path: url.pathname, status, ms: Date.now() - started }));
     }

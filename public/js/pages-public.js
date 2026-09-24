@@ -1,96 +1,90 @@
-import { api, state, html, raw, esc, route, act, form, field, empty, stars, money, fmtDate, priceLabel, priceKind, EVENT_TYPE, store, toast, go, openDialog, closeDialog, errBox, needLogin, back, toCents } from './core.js';
+import { api, state, html, raw, route, act, form, field, empty, stars, money, fmtDate, priceLabel, priceKind, EVENT_TYPE, store, toast, go, openDialog, closeDialog, errBox, needLogin, icon, t, track, render } from './core.js';
+import { savedLoc, locField, saveLoc } from './loc.js';
 
 const today = () => state.config?.today || new Date().toISOString().slice(0, 10);
 const cats = () => state.config?.categories || [];
 const catBySlug = (s) => cats().find((c) => c.slug === s);
+const disc = (i) => `background:hsl(${(i * 47 + 12) % 360} 90% 91%)`;
+const locQuery = () => { const s = savedLoc(); return s.lat ? `lat=${s.lat}&lng=${s.lng}` : s.q ? `loc=${encodeURIComponent(s.q)}` : ''; };
 
-// ---------------- localização ----------------
-const savedLoc = () => store.get('loc') || {};
-function locField(prefix = '', value = '') {
-  const s = savedLoc();
-  return html`<div class="field"><label for="${prefix}loc">Onde será a festa? <span class="meta">(CEP, cidade ou bairro)</span></label>
-    <div class="inline"><input id="${prefix}loc" name="loc" value="${value || s.q || ''}" placeholder="Ex.: 01310-100, Rio de Janeiro ou Mooca" autocomplete="postal-code" data-locinput>
-    <button class="btn ghost" type="button" data-act="geo" title="Usar a localização do dispositivo (o navegador pedirá sua permissão)">📍 <span>Usar minha localização</span></button></div>
-    <input type="hidden" name="lat" value="${s.lat && !value ? s.lat : ''}" data-lat><input type="hidden" name="lng" value="${s.lng && !value ? s.lng : ''}" data-lng></div>`;
-}
-document.addEventListener('input', (e) => { if (e.target.matches('[data-locinput]')) { const f = e.target.closest('form'); f.querySelector('[data-lat]').value = ''; f.querySelector('[data-lng]').value = ''; } });
-act('geo', (el) => new Promise((resolve) => {
-  const f = el.closest('form');
-  if (!navigator.geolocation) { toast('Seu navegador não oferece localização. Digite o CEP ou a cidade.', true); return resolve(); }
-  toast('Aguardando sua permissão para usar a localização…');
-  navigator.geolocation.getCurrentPosition(async (pos) => {
-    try {
-      const { location } = await api(`/locations/resolve?lat=${pos.coords.latitude}&lng=${pos.coords.longitude}`);
-      f.querySelector('[data-locinput]').value = location?.label || 'Minha localização';
-      f.querySelector('[data-lat]').value = pos.coords.latitude.toFixed(4); f.querySelector('[data-lng]').value = pos.coords.longitude.toFixed(4);
-      toast('Localização definida: ' + (location?.label || 'sua região'));
-    } catch (e) { toast(e.message, true); }
-    resolve();
-  }, () => { toast('Sem permissão de localização. Você pode digitar o CEP, a cidade ou o bairro.', true); resolve(); }, { timeout: 10000 });
-}));
-function saveLoc(d) { if (d.loc || d.lat) store.set('loc', { q: d.loc, lat: d.lat, lng: d.lng }); }
-act('clear-loc', () => { store.del('loc'); go('#/'); location.reload(); });
-
-// ---------------- cartões ----------------
+// ---------------- cartão de fornecedor ----------------
 export function providerCard(p, date) {
   const av = p.availability || {};
-  return html`<a class="card pcard" href="#/f/${p.slug}${date ? '?date=' + date : ''}">
-    <img class="cover" src="${p.cover_url}" alt="Imagem de capa (fictícia) de ${p.name}" loading="lazy">
+  return html`<article class="card pcard"><button class="favq" data-act="fav-quick" data-id="${p.id}" aria-pressed="${!!p.favorite}" aria-label="${t('Salvar fornecedor')}">${icon('heart', 18)}</button>
+    <a href="#/f/${p.slug}${date ? '?date=' + date : ''}" data-track="provider_card_click" data-name="${p.name}">
+    <div class="media"><img src="${p.cover_url}" alt="${t('Imagem de capa (fictícia) de {n}', { n: p.name })}" loading="lazy"><div class="badges">${p.verified ? html`<span class="tag ok">${icon('check', 13)} ${t('Verificado')}</span>` : ''}${p.premium ? html`<span class="tag orange">★ Premium</span>` : ''}</div></div>
     <div class="body">
-      <div class="row between"><h3>${p.name}</h3>${stars(p.rating, p.review_count)}</div>
-      <div class="chips">${p.verified ? html`<span class="tag ok">✔ Verificado</span>` : ''}${p.premium ? html`<span class="tag orange">★ Premium</span>` : ''}${av.known ? (av.available ? html`<span class="tag ok">Disponível em ${fmtDate(date)}</span>` : html`<span class="tag bad">Indisponível: ${av.reason}</span>`) : ''}</div>
-      <div class="meta">📍 ${p.city}/${p.state} · ${p.area}</div>
-      <div class="chips">${p.categories.slice(0, 4).map((c) => html`<span class="chip">${c}</span>`)}</div>
-      <div style="margin-top:auto"><div class="meta">Destaque: ${p.featured.name}</div>${p.from_price_cents != null ? html`<span class="price"><small>a partir de</small> ${money(p.from_price_cents)}</span>` : html`<span class="price">Sob orçamento</span>`}</div>
-    </div></a>`;
+      <div class="line"><h3>${p.name}</h3>${stars(p.rating, p.review_count)}</div>
+      <div class="meta">${p.categories.slice(0, 3).join(' · ')}</div>
+      <div class="meta" style="display:flex;gap:5px;align-items:center">${icon('pin', 15)} ${p.city}/${p.state} · ${p.area}</div>
+      ${av.known ? (av.available ? html`<span class="tag ok" style="align-self:flex-start">${t('Disponível em {d}', { d: fmtDate(date) })}</span>` : html`<span class="tag bad" style="align-self:flex-start">${t('Indisponível')}: ${av.reason}</span>`) : ''}
+      <div class="foot"><span class="meta">${p.featured.name}</span>${p.from_price_cents != null ? html`<span class="price"><small>${t('a partir de')}</small> ${money(p.from_price_cents)}</span>` : html`<span class="price">${t('Sob orçamento')}</span>`}</div>
+    </div></a></article>`;
 }
+document.addEventListener('click', (e) => { const a = e.target.closest('[data-track]'); if (a) track(a.dataset.track, { name: a.dataset.name }); });
+act('fav-quick', async (el, e) => {
+  e.preventDefault(); e.stopPropagation();
+  if (!state.user) return needLogin();
+  const on = el.getAttribute('aria-pressed') === 'true';
+  await api('/favorites/' + el.dataset.id, { method: on ? 'DELETE' : 'POST' });
+  el.setAttribute('aria-pressed', String(!on)); toast(on ? t('Removido dos salvos.') : t('Fornecedor salvo!')); if (!on) track('provider_favorited', { id: el.dataset.id });
+});
 
 // ---------------- home ----------------
+const WAVE = raw('<svg class="wave" viewBox="0 0 1440 60" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C240 70 480 0 720 25 S1200 65 1440 20 V60 H0Z" fill="#F6F7FB"/></svg>');
 route('/', async (ctx) => {
-  const s = savedLoc();
-  const qs = s.lat ? `lat=${s.lat}&lng=${s.lng}` : s.q ? `loc=${encodeURIComponent(s.q)}` : '';
-  const [near, popular] = await Promise.all([api('/search?' + qs), s.q || s.lat ? api('/search') : Promise.resolve(null)]);
-  const base = popular || near;
-  const svcs = base.results.slice(0, 8);
+  const s = savedLoc(), qs = locQuery();
+  const [near, all] = await Promise.all([api('/search?' + qs), qs ? api('/search') : null]);
+  const base = all || near;
+  const top = [...base.results].sort((a, b) => (b.rating || 0) - (a.rating || 0) || b.review_count - a.review_count).slice(0, 8);
   const banners = state.config?.banners || [];
-  ctx.title = 'Organize sua festa de forma rápida e fácil';
-  return html`<section class="hero"><div class="wrap">
-    <h1>Organize sua festa de forma rápida e fácil.</h1>
-    <p class="lead">Informe onde e quando será, compare fornecedores da sua região e contrate tudo em um só lugar.</p>
-    <form class="searchbox" data-form="search" role="search" aria-label="Buscar serviços para festa">
-      <div class="field c-q"><label for="q">O que você precisa para a sua festa?</label><input id="q" name="q" placeholder="Ex.: bolo, fotógrafo, buffet, DJ…" autocomplete="off"></div>
+  ctx.title = t('Organize sua festa de forma rápida e fácil.');
+  const promo = banners.length ? banners.slice(0, 2) : null;
+  const types = [['🎂', t('Aniversário'), ['doces-salgados', 'bolos', 'decoracao', 'fotografia'], '#FF7C00,#FFAA50'], ['🎈', t('Festa infantil'), ['recreacao-infantil', 'brinquedos', 'decoracao', 'bolos'], '#7A4DE8,#A98BFF'], ['💍', t('Casamento'), ['espaco-eventos', 'buffet', 'cerimonial', 'flores'], '#E5306B,#FF7DA3'], ['🎓', t('Formatura'), ['buffet', 'dj-musica', 'fotografia', 'iluminacao-som'], '#0E9F8E,#3FD2BF']];
+  return html`<section class="hero"><div class="wrap"><div>
+    <h1>${t('Organize sua festa de forma')} <span class="mark">${t('rápida e fácil.')}</span></h1>
+    <p class="lead">${t('Diga onde e quando será, compare fornecedores da sua região e contrate tudo em um só lugar.')}</p>
+    <form class="searchbox" data-form="search" role="search" aria-label="${t('Buscar serviços para festa')}">
+      <div class="field c-q"><label for="q">${t('O que você precisa para a sua festa?')}</label><input id="q" name="q" placeholder="${t('Ex.: bolo, fotógrafo, buffet, DJ…')}" autocomplete="off"></div>
       <div class="c-l">${locField()}</div>
-      ${field('Data do evento', 'date', { type: 'date', min: today(), cls: 'c-s' })}
-      ${field('Tipo de festa', 'event_type', { type: 'select', cls: 'c-s', options: [['', 'Qualquer'], ...Object.entries(EVENT_TYPE)] })}
-      ${field('Convidados', 'guests', { type: 'number', attrs: 'min="1" inputmode="numeric"', cls: 'c-s', placeholder: 'Ex.: 50' })}
-      <div class="c-go" style="display:flex;align-items:flex-end"><button class="btn orange" style="width:100%" type="submit">Buscar fornecedores</button></div>
-      <p class="meta" style="grid-column:1/-1;margin:0">Você pode explorar sem preencher tudo. Data e localização ajudam a mostrar só quem atende você.</p>
-    </form></div></section>
-  <div class="wrap page" style="padding-top:8px">
-    ${banners.map((b) => html`<div class="banner"><strong>${b.title}</strong> ${b.text || ''} ${b.link ? html`<a href="${b.link}">Saiba mais →</a>` : ''}</div>`)}
-    <section class="section"><h2>Categorias</h2><div class="cats">${cats().map((c) => html`<a class="cat" href="#/categoria/${c.slug}"><span class="i" aria-hidden="true">${c.icon}</span>${c.name}</a>`)}</div></section>
-    <section class="section"><div class="row between"><h2>${s.q || s.lat ? 'Fornecedores próximos de você' : 'Fornecedores em destaque'}</h2>${s.q || s.lat ? html`<span class="meta">📍 ${s.q || 'Sua localização'} · <button class="btn ghost sm" data-act="clear-loc">Trocar</button></span>` : ''}</div>
-      ${!(s.q || s.lat) ? html`<div class="notice info">Informe sua localização acima para ver só quem atende a sua região.</div>` : ''}
-      ${near.results.length ? html`<div class="grid g2">${near.results.slice(0, 6).map((p) => providerCard(p))}</div>` : emptyRegion(near, s.q)}</section>
-    <section class="section"><h2>Serviços populares</h2><div class="grid g3">${svcs.map((p) => html`<a class="card pcard" href="#/f/${p.slug}"><img class="cover" src="${p.featured.image || p.cover_url}" alt="Imagem fictícia de ${p.featured.name}" loading="lazy"><div class="body"><strong>${p.featured.name}</strong><span class="meta">${p.name} · ${p.city}</span>${priceLabel(p.featured)}</div></a>`)}</div></section>
-    <section class="section"><h2>Sugestões para começar a planejar</h2><div class="grid g3">
-      ${[['🎂', 'Aniversário', ['doces-salgados', 'bolos', 'decoracao', 'fotografia']], ['🎈', 'Festa infantil', ['recreacao-infantil', 'brinquedos', 'decoracao', 'bolos']], ['💍', 'Casamento', ['espaco-eventos', 'buffet', 'cerimonial', 'flores']], ['🎓', 'Formatura', ['buffet', 'dj-musica', 'fotografia', 'iluminacao-som']]].map(([i, t, cs]) => html`<div class="card pad"><h3>${i} ${t}</h3><p class="meta">Comece por estas categorias:</p><div class="chips">${cs.map((c) => html`<a class="chip" href="#/categoria/${c}">${catBySlug(c)?.name || c}</a>`)}</div></div>`)}</div>
-      <p><a class="btn ghost" href="#/eventos">Criar minha festa e montar o planejamento</a></p></section>
-    <section class="section"><h2>Como funciona</h2><div class="steps">
-      <div class="step"><b>1</b><h3>Organize</h3><p>Diga onde, quando e que tipo de festa você quer fazer.</p></div>
-      <div class="step"><b>2</b><h3>Encontre</h3><p>Compare fornecedores da sua região, preços e avaliações.</p></div>
-      <div class="step"><b>3</b><h3>Agende</h3><p>Peça orçamento ou contrate. A data é reservada após o pagamento.</p></div>
-      <div class="step"><b>4</b><h3>Realize</h3><p>Acompanhe o pedido, converse com o fornecedor e curta a festa.</p></div></div></section>
+      ${field(t('Data do evento'), 'date', { type: 'date', min: today(), cls: 'c-s' })}
+      ${field(t('Tipo de festa'), 'event_type', { type: 'select', cls: 'c-s', options: [['', t('Qualquer')], ...Object.entries(EVENT_TYPE())] })}
+      ${field(t('Convidados'), 'guests', { type: 'number', attrs: 'min="1" inputmode="numeric"', cls: 'c-s', placeholder: t('Ex.: 50') })}
+      <div class="c-go" style="display:flex;align-items:flex-end"><button class="btn orange block" type="submit">${icon('search', 18)} ${t('Buscar fornecedores')}</button></div>
+      <p class="meta tiny hint">${t('Você pode explorar sem preencher tudo. Data e local ajudam a mostrar só quem atende você.')}</p>
+    </form></div>
+    <div class="collage" aria-hidden="true"><div class="b b1">🎂</div><div class="b b2">🎈</div><div class="b b3">📸</div><div class="b b4">🎧</div></div></div>${WAVE}</section>
+  <div class="wrap" style="padding-bottom:20px">
+    <section class="section" style="margin-top:8px" aria-labelledby="cats"><div class="row between"><h2 id="cats">${t('O que você procura?')}</h2></div>
+      <div class="catrow">${cats().map((c, i) => html`<a class="catc" href="#/categoria/${c.slug}" data-track="category_click" data-name="${c.slug}"><div class="disc" style="${disc(i)}" aria-hidden="true">${c.icon}</div>${c.name}</a>`)}</div></section>
+    <section class="section"><div class="promo">${promo ? promo.map((b, i) => html`<a class="p${i + 1}" href="${b.link || '#/busca'}"><h3>${b.title}</h3><p>${b.text || ''}</p><span class="btn ${i ? 'orange' : 'ghost'} sm">${t('Saiba mais')} ${icon('arrow', 16)}</span></a>`) : html`<a class="p1" href="#/busca"><h3>${t('Primeira festa na Agitaê?')}</h3><p>${t('Use o cupom BEMVINDO10 e ganhe 10% de desconto.')}</p></a><a class="p2" href="#/fornecedor/cadastro"><h3>${t('Fornecedor? Cadastre-se grátis')}</h3></a>`}</div></section>
+    <section class="section"><div class="row between"><h2>${qs ? t('Fornecedores perto de você') : t('Fornecedores em destaque')}</h2>${qs ? html`<span class="meta">${icon('pin', 15)} ${s.q || t('Minha localização')} · <a href="#/busca?${qs}">${t('Ver todos')}</a></span>` : html`<a class="linkmore" href="#/busca">${t('Ver todos')} →</a>`}</div>
+      ${!qs ? html`<div class="notice info">${t('Informe seu local no topo da página para ver só quem atende a sua região.')}</div>` : ''}
+      ${near.results.length ? html`<div class="rail">${near.results.slice(0, 10).map((p) => providerCard(p))}</div>` : emptyRegion(near, s.q)}</section>
+    <section class="section"><div class="row between"><h2>${t('Serviços populares')}</h2><a class="linkmore" href="#/busca">${t('Ver todos')} →</a></div>
+      <div class="rail">${base.results.slice(0, 10).map((p) => html`<article class="card pcard svcmini"><a href="#/f/${p.slug}"><div class="media"><img src="${p.featured.image || p.cover_url}" alt="${t('Imagem fictícia de {n}', { n: p.featured.name })}" loading="lazy"></div><div class="body"><h3>${p.featured.name}</h3><span class="meta">${p.name} · ${p.city}</span>${priceLabel(p.featured)}</div></a></article>`)}</div></section>
+    ${top.length ? html`<section class="section"><div class="row between"><h2>${t('Mais bem avaliados')}</h2></div><div class="rail">${top.map((p) => providerCard(p))}</div></section>` : ''}
+    <section class="section"><h2>${t('Comece a planejar por tipo de festa')}</h2><div class="tiles">${types.map(([i, n, cs, g]) => html`<div class="tile" style="background:linear-gradient(135deg,${g.split(',')[0]},${g.split(',')[1]})"><div class="big" aria-hidden="true">${i}</div><h3>${n}</h3><div class="chips">${cs.map((c) => html`<a class="chip" href="#/categoria/${c}">${catBySlug(c)?.name || c}</a>`)}</div></div>`)}</div>
+      <p style="margin-top:14px"><a class="btn ghost" href="#/eventos">${icon('cal', 18)} ${t('Criar minha festa e montar o planejamento')}</a></p></section>
+    <section class="section"><h2>${t('Como funciona')}</h2><div class="steps">
+      <div class="step"><div class="n" aria-hidden="true">📝</div><h3>1. ${t('Organize')}</h3><p class="meta">${t('Diga onde, quando e que tipo de festa você quer fazer.')}</p></div>
+      <div class="step"><div class="n" aria-hidden="true">🔎</div><h3>2. ${t('Encontre')}</h3><p class="meta">${t('Compare fornecedores da sua região, preços e avaliações.')}</p></div>
+      <div class="step"><div class="n" aria-hidden="true">📅</div><h3>3. ${t('Agende')}</h3><p class="meta">${t('Peça orçamento ou contrate. A data é reservada após o pagamento.')}</p></div>
+      <div class="step"><div class="n" aria-hidden="true">🎉</div><h3>4. ${t('Realize')}</h3><p class="meta">${t('Acompanhe o pedido, converse com o fornecedor e curta a festa.')}</p></div></div></section>
+    <section class="section"><div class="trust"><div>${icon('shield', 26)}<div><h3>${t('Contratação segura')}</h3><p class="meta">${t('Preços e taxas claros antes de pagar, com política de cancelamento visível.')}</p></div></div>
+      <div>${icon('star', 26)}<div><h3>${t('Avaliações reais')}</h3><p class="meta">${t('Só quem concluiu uma contratação pode avaliar o fornecedor.')}</p></div></div>
+      <div>${icon('pin', 26)}<div><h3>${t('Perto de você')}</h3><p class="meta">${t('Mostramos fornecedores que realmente atendem o seu endereço.')}</p></div></div></div></section>
+    <section class="section"><div class="cta"><h2>${t('Tem um negócio de festas?')}</h2><p>${t('Alcance clientes da sua região sem mensalidade: você só paga uma comissão quando vender.')}</p><div><a class="btn orange" href="#/fornecedor/cadastro">${t('Cadastre seu negócio')}</a></div></div></section>
   </div>`;
 });
 function emptyRegion(res, q) {
-  if (res.empty_reason === 'local_desconhecido') return empty('🗺️', 'Não reconhecemos esse local', 'Tente um CEP completo, o nome da cidade ou o bairro.');
-  return empty('🚧', 'Ainda não chegamos por aí', `Ainda não temos fornecedores${q ? ' para "' + q + '"' : ' nesta região'}. Já atendemos: ${(res.other_cities || []).map((c) => c.name).join(', ') || 'algumas cidades'}.`, html`<a class="btn ghost" href="#/fornecedor/cadastro">Conhece um fornecedor? Indique o cadastro</a>`);
+  if (res.empty_reason === 'local_desconhecido') return empty('🗺️', t('Não reconhecemos esse local'), t('Tente um CEP completo, o nome da cidade ou o bairro.'));
+  return empty('🚧', t('Ainda não chegamos por aí'), t('Ainda não temos fornecedores nesta região. Já atendemos: {c}.', { c: (res.other_cities || []).map((c) => c.name).join(', ') || '—' }), html`<a class="btn ghost" href="#/fornecedor/cadastro">${t('Conhece um fornecedor? Indique o cadastro')}</a>`);
 }
-form('search', (d, f) => {
-  saveLoc(d);
-  const p = new URLSearchParams(); for (const [k, v] of Object.entries(d)) if (v !== '' && v != null && !(k === 'guests')) p.set(k, v);
-  if (d.guests) store.set('guests', d.guests);
+form('search', (d) => {
+  saveLoc(d); if (d.guests) store.set('guests', d.guests);
+  const p = new URLSearchParams(); for (const [k, v] of Object.entries(d)) if (v !== '' && v != null && k !== 'guests') p.set(k, v);
+  track('search_performed', { q: d.q || '', loc: d.loc || '', date: d.date || '', event_type: d.event_type || '' });
   go('#/busca?' + p);
 });
 
@@ -98,179 +92,196 @@ form('search', (d, f) => {
 async function searchPage(ctx) {
   const q = { ...ctx.query }; if (ctx.params.slug) q.category = ctx.params.slug;
   const c = q.category ? catBySlug(q.category) : null;
+  if (!q.loc && !q.lat && !('nolocation' in q)) { const s = savedLoc(); if (s.lat) { q.lat = s.lat; q.lng = s.lng; q.loc = s.q; } else if (s.q) q.loc = s.q; }
   const usp = new URLSearchParams(); for (const k of ['q', 'loc', 'lat', 'lng', 'category', 'date', 'event_type', 'min_price', 'max_price', 'min_rating', 'available', 'sort']) if (q[k]) usp.set(k, q[k]);
-  if (!q.loc && !q.lat && savedLoc().q && !('nolocation' in q)) { const s = savedLoc(); if (s.lat) { usp.set('lat', s.lat); usp.set('lng', s.lng); q.lat = s.lat; q.lng = s.lng; q.loc = s.q; } else if (s.q) { usp.set('loc', s.q); q.loc = s.q; } }
   const res = await api('/search?' + usp);
-  ctx.title = c ? c.name : 'Buscar fornecedores';
-  const back = `#/${ctx.params.slug ? 'categoria/' + ctx.params.slug : 'busca'}`;
-  return html`<div class="wrap page"><h1>${c ? html`<span aria-hidden="true">${c.icon}</span> ${c.name}` : 'Buscar fornecedores'}</h1>
-    <p class="meta" role="status">${res.total} fornecedor(es)${res.location ? html` · 📍 ${res.location.label}` : ' · todas as regiões'}${q.date ? html` · ${fmtDate(q.date)}` : ''}</p>
-    <div class="layout"><form class="card pad filters" data-form="refine" data-base="${back}" aria-label="Filtros">
-      <h2>Filtros</h2>
-      ${field('Buscar', 'q', { value: q.q, placeholder: 'nome, serviço, palavra-chave' })}
-      ${field('Categoria', 'category', { type: 'select', value: q.category || '', options: [['', 'Todas'], ...cats().map((x) => [x.slug, x.name])] })}
+  ctx.title = c ? c.name : t('Buscar fornecedores');
+  const catLink = (slug) => `#/${slug ? 'categoria/' + slug : 'busca'}${q.loc ? '?loc=' + encodeURIComponent(q.loc) : ''}`;
+  return html`<div class="wrap page"><div class="pagehead"><div><h1>${c ? html`<span aria-hidden="true">${c.icon}</span> ${c.name}` : t('Buscar fornecedores')}</h1>
+    <p class="meta" role="status">${t('{n} fornecedor(es)', { n: res.total })}${res.location ? html` · ${icon('pin', 14)} ${res.location.label}` : ' · ' + t('todas as regiões')}${q.date ? ' · ' + fmtDate(q.date) : ''}</p></div>
+    <button class="btn ghost sm filtertoggle" data-act="toggle-filters">${t('Filtros')}</button></div>
+    <div class="catrow" style="margin-bottom:8px"><a class="chip" style="${!c ? 'background:var(--ink);color:#fff' : ''};padding:7px 14px" href="${catLink('')}">${t('Todas')}</a>${cats().map((x) => html`<a class="chip" style="${c?.slug === x.slug ? 'background:var(--ink);color:#fff' : ''};padding:7px 14px;white-space:nowrap" href="${catLink(x.slug)}">${x.icon} ${x.name}</a>`)}</div>
+    <div class="layout" id="searchlayout"><form class="card pad filters" data-form="refine" aria-label="${t('Filtros')}">
+      <h2>${t('Filtros')}</h2>
+      ${field(t('Buscar'), 'q', { value: q.q, placeholder: t('nome, serviço, palavra-chave') })}
+      ${field(t('Categoria'), 'category', { type: 'select', value: q.category || '', options: [['', t('Todas')], ...cats().map((x) => [x.slug, x.name])] })}
       ${locField('r-', q.loc || '')}
-      ${field('Data do evento', 'date', { type: 'date', value: q.date, min: today() })}
-      <label class="check"><input type="checkbox" name="available" value="1" ${q.available ? 'checked' : ''}> <span>Só fornecedores disponíveis na data</span></label>
-      ${field('Tipo de festa', 'event_type', { type: 'select', value: q.event_type || '', options: [['', 'Qualquer'], ...Object.entries(EVENT_TYPE)] })}
-      <div class="inline">${field('Preço mín. (R$)', 'min_price', { type: 'number', value: q.min_price, attrs: 'min="0" step="1"' })}${field('Preço máx. (R$)', 'max_price', { type: 'number', value: q.max_price, attrs: 'min="0" step="1"' })}</div>
-      ${field('Avaliação mínima', 'min_rating', { type: 'select', value: q.min_rating || '', options: [['', 'Qualquer'], ['3', '3★ ou mais'], ['4', '4★ ou mais'], ['4.5', '4,5★ ou mais']] })}
-      ${field('Ordenar por', 'sort', { type: 'select', value: q.sort || 'relevancia', options: [['relevancia', 'Relevância'], ['preco_asc', 'Menor preço'], ['preco_desc', 'Maior preço'], ['avaliacao', 'Melhor avaliação']] })}
-      <button class="btn" type="submit">Aplicar filtros</button>
-      <p class="meta">Tipos de preço: <span class="tag ok">Preço fechado</span> <span class="tag info">A partir de</span> <span class="tag orange">Sob orçamento</span></p>
+      ${field(t('Data do evento'), 'date', { type: 'date', value: q.date, min: today() })}
+      <label class="check"><input type="checkbox" name="available" value="1" ${q.available ? 'checked' : ''}> <span>${t('Só fornecedores disponíveis na data')}</span></label>
+      ${field(t('Tipo de festa'), 'event_type', { type: 'select', value: q.event_type || '', options: [['', t('Qualquer')], ...Object.entries(EVENT_TYPE())] })}
+      <div class="inline">${field(t('Preço mín. (R$)'), 'min_price', { type: 'number', value: q.min_price, attrs: 'min="0" step="1"' })}${field(t('Preço máx. (R$)'), 'max_price', { type: 'number', value: q.max_price, attrs: 'min="0" step="1"' })}</div>
+      ${field(t('Avaliação mínima'), 'min_rating', { type: 'select', value: q.min_rating || '', options: [['', t('Qualquer')], ['3', t('3★ ou mais')], ['4', t('4★ ou mais')], ['4.5', t('4,5★ ou mais')]] })}
+      ${field(t('Ordenar por'), 'sort', { type: 'select', value: q.sort || 'relevancia', options: [['relevancia', t('Relevância')], ['preco_asc', t('Menor preço')], ['preco_desc', t('Maior preço')], ['avaliacao', t('Melhor avaliação')]] })}
+      <button class="btn" type="submit">${t('Aplicar filtros')}</button>
+      <p class="meta tiny">${t('Tipos de preço')}: <span class="tag ok">${t('Preço fechado')}</span> <span class="tag info">${t('A partir de')}</span> <span class="tag orange">${t('Sob orçamento')}</span></p>
     </form>
-    <div>${res.results.length ? html`<div class="grid g2">${res.results.map((p) => providerCard(p, q.date))}</div>` : emptyResults(res, q)}</div></div></div>`;
+    <div>${res.results.length ? html`<div class="grid g2">${res.results.map((p) => providerCard(p, q.date))}</div>` : (res.empty_reason === 'sem_resultados' ? empty('🔎', t('Nada encontrado'), t('Tente outros termos ou remova alguns filtros.')) : emptyRegion(res, q.loc))}</div></div></div>`;
 }
-function emptyResults(res, q) {
-  if (res.empty_reason === 'sem_resultados') return empty('🔎', 'Nada encontrado', 'Tente outros termos ou remova alguns filtros.');
-  return emptyRegion(res, q.loc);
-}
+act('toggle-filters', () => document.getElementById('searchlayout')?.classList.toggle('fopen'));
 form('refine', (d) => { saveLoc(d); const p = new URLSearchParams(); for (const [k, v] of Object.entries(d)) if (v !== '' && v != null) p.set(k, v); if (!d.loc && !d.lat) p.set('nolocation', '1'); go('#/busca?' + p); });
 route('/busca', searchPage); route('/categoria/:slug', searchPage);
 
 // ---------------- perfil do fornecedor ----------------
-let P = null; // dados da página atual
+let P = null;
+const cartOf = (p) => (state.cart && state.cart.provider_id === p.id ? state.cart : null);
+const estimate = (i) => (i.unit_cents || 0) * i.qty + (i.opts_cents || 0);
+function cartPanel() {
+  const p = P.provider, c = cartOf(p), total = c ? c.items.reduce((s, i) => s + estimate(i), 0) : 0;
+  return html`<h3>${icon('bag', 20)} ${t('Seu pedido')}</h3>${c && c.items.length ? html`<ul class="cartlist">${c.items.map((i, n) => html`<li><div class="row between"><strong>${i.name}</strong><button class="btn ghost sm" data-act="cart-remove" data-n="${n}" aria-label="${t('Remover {n}', { n: i.name })}">✕</button></div><div class="row between meta"><span>${i.qty} × ${i.unit || ''}${i.opt_names ? ' + ' + i.opt_names : ''}</span><strong>${money(estimate(i))}</strong></div></li>`)}</ul>
+    <div class="row between"><span class="meta">${t('Estimativa (sem deslocamento e descontos)')}</span><strong>${money(total)}</strong></div><a class="btn orange block" style="margin-top:12px" href="#/checkout" data-track="checkout_started" data-name="${p.name}">${t('Continuar para a contratação')}</a>`
+    : html`<p class="meta">${t('Escolha itens do catálogo para contratar. Para serviços sob orçamento, peça uma proposta.')}</p>`}
+    <hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><ul class="meta" style="padding-left:18px;margin:0 0 12px"><li>${t('Preços e taxas claros antes de pagar')}</li><li>${t('Data reservada após confirmação do pagamento')}</li><li>${t('Cancelamento: reembolso de 100% até 7 dias antes; 50% de 2 a 6 dias')}</li></ul>
+    <button class="btn ghost block" data-act="quote-open" data-service="">${icon('chat', 18)} ${t('Conversar / pedir orçamento')}</button>`;
+}
+const refreshCart = () => { const el = document.getElementById('cartpanel'); if (el) el.innerHTML = cartPanel().s; };
 route('/f/:slug', async (ctx) => {
   const d = (P = await api(`/providers/${ctx.params.slug}${ctx.query.date ? '?date=' + ctx.query.date : ''}`));
-  const p = d.provider, unav = (await api(`/providers/${p.slug}/unavailable`).catch(() => ({ dates: [] })));
-  ctx.title = p.name; P.unav = unav;
-  const allSvcs = d.categories.flatMap((c) => c.services);
-  return html`<div class="wrap page">
-    ${p.status !== 'aprovado' ? html`<div class="notice">Este perfil está <strong>${p.status}</strong> e só é visível para você e a administração.</div>` : ''}
-    <img class="cover-big" src="${p.cover_url}" alt="Capa (fictícia) de ${p.name}">
-    <div class="pheader"><img class="logo-img" src="${p.logo_url || p.cover_url}" alt="Logo de ${p.name}"><div><h1 style="margin:0">${p.name}</h1><div class="chips">${p.verified ? html`<span class="tag ok">✔ Verificado</span>` : html`<span class="tag warn">Perfil não verificado</span>`}${p.premium ? html`<span class="tag orange">★ Premium</span>` : ''} ${stars(p.rating, p.review_count)}</div></div></div>
-    <div class="row" style="margin:16px 0">
-      <button class="btn ghost sm" data-act="fav" data-id="${p.id}" aria-pressed="${d.favorite}">${d.favorite ? '♥ Salvo' : '♡ Salvar'}</button>
-      <button class="btn ghost sm" data-act="share">↗ Compartilhar</button>
-      <button class="btn orange sm" data-act="quote-open" data-service="">💬 Conversar / pedir orçamento</button></div>
-    <div class="layout right"><div>
-      <section><h2>Sobre</h2><p>${p.description}</p><div class="cols">
-        <div><strong>📍 Endereço</strong><br>${p.address || p.city + '/' + p.state}</div><div><strong>🕒 Horários</strong><br>${p.hours || 'Sob agendamento'}</div>
-        <div><strong>🗺️ Área atendida</strong><br>${d.areas.join(', ') || p.city}</div><div><strong>🚚 Deslocamento</strong><br>${p.travel_policy || 'Consulte o fornecedor'}</div></div></section>
-      <section class="section" aria-labelledby="dispo"><h2 id="dispo">Disponibilidade por data</h2>
-        <form class="inline" data-form="check-date" data-slug="${p.slug}">${field('Consultar uma data', 'date', { type: 'date', value: ctx.query.date || '', min: today() })}<button class="btn ghost" type="submit">Verificar</button></form>
-        ${d.availability.known ? (d.availability.available ? html`<div class="notice ok" role="status">✔ Disponível em ${fmtDate(ctx.query.date)}. A data é reservada quando o pagamento é confirmado.</div>` : html`<div class="notice bad" role="status">Indisponível em ${fmtDate(ctx.query.date)}: ${d.availability.reason}.</div>`) : html`<p class="meta">Antecedência mínima: ${p.min_notice_days} dia(s). A disponibilidade é informativa até o pagamento ser confirmado.</p>`}</section>
-      <section class="section"><h2>Catálogo de serviços e produtos</h2>
-        <div class="tabs" role="navigation" aria-label="Categorias do fornecedor">${d.categories.map((c) => html`<a href="#/f/${p.slug}" data-act="jump" data-to="cat-${c.slug}">${c.icon} ${c.name} (${c.services.length})</a>`)}</div>
-        ${d.categories.map((c) => html`<div id="cat-${c.slug}" style="scroll-margin-top:90px"><h3>${c.icon} ${c.name}</h3><div class="grid">${c.services.map((s) => html`<article class="card svc"><img src="${s.images[0] || p.cover_url}" alt="Imagem fictícia de ${s.name}" loading="lazy"><div>
-          <div class="row between"><strong>${s.name}</strong><span class="tag ${priceKind(s.price_type)[1]}">${priceKind(s.price_type)[0]}</span></div>${priceLabel(s)}
-          <p class="meta" style="margin:.25rem 0">${s.description || ''}</p>
-          <p class="meta" style="margin:0">${s.min_qty > 1 ? `Mínimo: ${s.min_qty} · ` : ''}Antecedência: ${s.lead_days} dia(s)${s.options.length ? ` · ${s.options.length} adicional(is)` : ''}</p>
-          <div class="row" style="margin-top:8px"><button class="btn sm" data-act="svc-open" data-id="${s.id}">Ver detalhes</button>
-            ${s.price_type === 'orcamento' ? html`<button class="btn orange sm" data-act="quote-open" data-service="${s.id}">Pedir orçamento</button>` : html`<button class="btn orange sm" data-act="hire-open" data-id="${s.id}">Contratar</button>`}
-            <button class="btn ghost sm" data-act="plan-open" data-id="${s.id}">+ Planejamento</button></div></div></article>`)}</div></div>`)}
-        ${!allSvcs.length ? empty('📦', 'Nenhum serviço publicado ainda', 'Este fornecedor ainda não cadastrou itens no catálogo.') : ''}</section>
-      <section class="section"><h2>Portfólio</h2>${d.media.length ? html`<div class="gallery">${d.media.map((m) => m.type === 'imagem' ? html`<figure style="margin:0"><img src="${m.url}" alt="${m.caption || 'Foto do portfólio (fictícia)'}" loading="lazy"><figcaption class="meta">${m.caption || ''}</figcaption></figure>` : html`<a class="card pad" href="${m.url}" target="_blank" rel="noopener noreferrer">🎬 ${m.caption || 'Ver vídeo'}<br><span class="meta">Abre em nova aba</span></a>`)}</div>` : html`<p class="meta">Sem itens no portfólio.</p>`}</section>
-      <section class="section"><h2>Avaliações</h2><p class="meta">Somente clientes com contratações concluídas podem avaliar. Avaliações passam por moderação.</p>${d.reviews.length ? d.reviews.map((r) => html`<div class="card pad" style="margin-bottom:10px"><div class="row between"><strong>${r.author}</strong><span class="stars" aria-label="Nota ${r.rating} de 5">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div><p>${r.comment || ''}</p><span class="meta">${fmtDate(r.created_at)}</span>${r.reply ? html`<div class="notice info"><strong>Resposta do fornecedor:</strong> ${r.reply}</div>` : ''}</div>`) : empty('⭐', 'Ainda sem avaliações', 'As avaliações aparecem aqui após contratações concluídas.')}</section>
-    </div>
-    <aside class="card pad" style="align-self:start;position:sticky;top:80px"><h3>Contratar com segurança</h3><ul class="meta" style="padding-left:18px"><li>Preços e taxas claros antes de pagar</li><li>Pagamento pela plataforma</li><li>Data reservada após confirmação</li><li>Cancelamento: reembolso de 100% até 7 dias antes; 50% de 2 a 6 dias</li></ul>
-      <button class="btn orange" style="width:100%" data-act="quote-open" data-service="">Pedir orçamento</button></aside></div></div>`;
+  const p = d.provider; P.unav = await api(`/providers/${p.slug}/unavailable`).catch(() => ({ dates: [] }));
+  ctx.title = p.name; store.set('last_provider', p.slug); track('provider_viewed', { slug: p.slug, name: p.name });
+  const hist = [1, 2, 3, 4, 5].map((n) => d.reviews.filter((r) => r.rating === n).length);
+  ctx.mount = () => {
+    const links = [...document.querySelectorAll('.stickytabs a')], secs = links.map((a) => document.getElementById(a.dataset.to)).filter(Boolean);
+    if (!('IntersectionObserver' in window) || !secs.length) return;
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) links.forEach((a) => a.setAttribute('aria-current', String(a.dataset.to === e.target.id))); }), { rootMargin: '-140px 0px -65% 0px' });
+    secs.forEach((s) => io.observe(s));
+  };
+  return html`<div>${p.status !== 'aprovado' ? html`<div class="wrap"><div class="notice">${t('Este perfil está {s} e só é visível para você e a administração.', { s: p.status })}</div></div>` : ''}
+    <div class="pcover"><img src="${p.cover_url}" alt="${t('Capa (fictícia) de {n}', { n: p.name })}"><div class="actions"><button class="iconbtn" data-act="fav" data-id="${p.id}" aria-pressed="${d.favorite}" aria-label="${t('Salvar fornecedor')}">${icon('heart', 20)}</button><button class="iconbtn" data-act="share" aria-label="${t('Compartilhar')}">${icon('share', 20)}</button></div></div>
+    <div class="wrap"><div class="pinfo"><img class="plogo" src="${p.logo_url || p.cover_url}" alt="${t('Logo de {n}', { n: p.name })}"><div><h1>${p.name}</h1>
+      <div class="chips" style="margin-bottom:8px">${p.verified ? html`<span class="tag ok">${icon('check', 13)} ${t('Verificado')}</span>` : html`<span class="tag warn">${t('Perfil não verificado')}</span>`}${p.premium ? html`<span class="tag orange">★ Premium</span>` : ''} ${stars(p.rating, p.review_count)}</div>
+      <div class="facts"><span>${icon('pin', 16)} ${p.neighborhood ? p.neighborhood + ' · ' : ''}${p.city}/${p.state}</span><span>${icon('clock', 16)} ${p.hours || t('Sob agendamento')}</span><span>${icon('cal', 16)} ${t('Antecedência mínima: {n} dia(s)', { n: p.min_notice_days })}</span></div></div>
+      <div class="row"><button class="btn orange" data-act="quote-open" data-service="">${icon('chat', 18)} ${t('Conversar / pedir orçamento')}</button></div></div>
+    <div class="stickytabs"><div class="in" role="navigation" aria-label="${t('Categorias do fornecedor')}">${d.categories.map((c, i) => html`<a href="#/f/${p.slug}" data-act="jump" data-to="cat-${c.slug}" aria-current="${i === 0}">${c.icon} ${c.name}</a>`)}<a href="#/f/${p.slug}" data-act="jump" data-to="sec-about">${t('Sobre')}</a><a href="#/f/${p.slug}" data-act="jump" data-to="sec-reviews">${t('Avaliações')}</a></div></div>
+    <div class="layout right" style="margin-top:8px"><div>
+      <section class="card pad" style="margin-top:18px"><h3>${icon('cal', 18)} ${t('Disponibilidade por data')}</h3>
+        <form class="inline" data-form="check-date" data-slug="${p.slug}">${field(t('Consultar uma data'), 'date', { type: 'date', value: ctx.query.date || '', min: today() })}<button class="btn ghost" type="submit">${t('Verificar')}</button></form>
+        ${d.availability.known ? (d.availability.available ? html`<div class="notice ok" role="status">✔ ${t('Disponível em {d}. A data é reservada quando o pagamento é confirmado.', { d: fmtDate(ctx.query.date) })}</div>` : html`<div class="notice bad" role="status">${t('Indisponível em {d}', { d: fmtDate(ctx.query.date) })}: ${d.availability.reason}.</div>`) : html`<p class="meta" style="margin:8px 0 0">${t('A disponibilidade é informativa até o pagamento ser confirmado.')}</p>`}</section>
+      ${d.categories.map((c) => html`<section class="catsec" id="cat-${c.slug}"><h2>${c.icon} ${c.name}</h2><div class="grid">${c.services.map((s) => html`<article class="card svcrow" data-act="svc-open" data-id="${s.id}" tabindex="0" role="button" aria-label="${s.name}"><div>
+          <h3>${s.name}</h3><p class="desc">${s.description || ''}</p><div class="row" style="gap:8px">${priceLabel(s)}<span class="tag ${priceKind(s.price_type)[1]}">${priceKind(s.price_type)[0]}</span></div>
+          <p class="meta tiny" style="margin:6px 0 0">${s.min_qty > 1 ? t('Mínimo: {n}', { n: s.min_qty }) + ' · ' : ''}${t('Antecedência: {n} dia(s)', { n: s.lead_days })}${s.options.length ? ' · ' + t('{n} adicional(is)', { n: s.options.length }) : ''}</p></div>
+          <div class="thumb"><img src="${s.images[0] || p.cover_url}" alt="${t('Imagem fictícia de {n}', { n: s.name })}" loading="lazy"><span class="addbtn" aria-hidden="true">${icon('plus', 20)}</span></div></article>`)}</div></section>`)}
+      ${!d.categories.length ? empty('📦', t('Nenhum serviço publicado ainda'), t('Este fornecedor ainda não cadastrou itens no catálogo.')) : ''}
+      <section class="catsec" id="sec-about"><h2>${t('Sobre')}</h2><div class="card pad"><p>${p.description}</p><div class="infogrid">
+        <div><h3>${icon('pin', 16)} ${t('Endereço')}</h3>${p.address || p.city + '/' + p.state}</div><div><h3>${icon('clock', 16)} ${t('Horários')}</h3>${p.hours || t('Sob agendamento')}</div>
+        <div><h3>${icon('globe', 16)} ${t('Área atendida')}</h3>${d.areas.join(', ') || p.city}</div><div><h3>${icon('arrow', 16)} ${t('Deslocamento')}</h3>${p.travel_policy || t('Consulte o fornecedor')}</div></div></div>
+        <h3 style="margin-top:20px">${t('Portfólio')}</h3>${d.media.length ? html`<div class="gallery">${d.media.map((m) => m.type === 'imagem' ? html`<figure style="margin:0"><img src="${m.url}" alt="${m.caption || t('Foto do portfólio (fictícia)')}" loading="lazy"><figcaption class="meta tiny">${m.caption || ''}</figcaption></figure>` : html`<a class="card pad" href="${m.url}" target="_blank" rel="noopener noreferrer">🎬 ${m.caption || t('Ver vídeo')}<br><span class="meta tiny">${t('Abre em nova aba')}</span></a>`)}</div>` : html`<p class="meta">${t('Sem itens no portfólio.')}</p>`}</section>
+      <section class="catsec" id="sec-reviews"><h2>${t('Avaliações')}</h2><p class="meta">${t('Somente clientes com contratações concluídas podem avaliar. Avaliações passam por moderação.')}</p>
+        ${d.reviews.length ? html`<div class="card pad"><div class="revsum"><div><div class="big">${p.rating?.toFixed(1).replace('.', ',')}</div><div class="meta">${t('{n} avaliações', { n: p.review_count })}</div></div><div style="flex:1;min-width:200px">${[5, 4, 3, 2, 1].map((n) => html`<div class="row" style="gap:8px;flex-wrap:nowrap"><span class="meta" style="width:24px">${n}★</span><div class="bar" style="flex:1"><i style="width:${(hist[n - 1] / d.reviews.length) * 100}%"></i></div><span class="meta" style="width:22px">${hist[n - 1]}</span></div>`)}</div></div>
+          ${d.reviews.map((r) => html`<div style="border-top:1px solid var(--line);padding:14px 0"><div class="row between"><strong>${r.author}</strong><span class="stars" aria-label="${t('Nota {r} de 5', { r: r.rating })}" style="color:#E08A00">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div><p style="margin:.3rem 0">${r.comment || ''}</p><span class="meta tiny">${fmtDate(r.created_at)}</span>${r.reply ? html`<div class="notice info"><strong>${t('Resposta do fornecedor')}:</strong> ${r.reply}</div>` : ''}</div>`)}</div>` : empty('⭐', t('Ainda sem avaliações'), t('As avaliações aparecem aqui após contratações concluídas.'))}</section>
+    </div><aside><div class="card pad cartpanel" id="cartpanel">${cartPanel()}</div></aside></div></div></div>`;
 });
 act('jump', (el, e) => { e.preventDefault(); document.getElementById(el.dataset.to)?.scrollIntoView({ behavior: 'smooth' }); });
 form('check-date', (d, f) => go(`#/f/${f.dataset.slug}?date=${d.date}`));
-act('share', async () => { const url = location.href; try { if (navigator.share) await navigator.share({ title: P.provider.name, url }); else { await navigator.clipboard.writeText(url); toast('Link copiado!'); } } catch { toast('Copie o endereço da barra do navegador para compartilhar.'); } });
+act('share', async () => { const url = location.href; try { if (navigator.share) await navigator.share({ title: P.provider.name, url }); else { await navigator.clipboard.writeText(url); toast(t('Link copiado!')); } track('provider_shared', { slug: P.provider.slug }); } catch { toast(t('Copie o endereço da barra do navegador para compartilhar.')); } });
 act('fav', async (el) => {
   if (!state.user) return needLogin();
   const on = el.getAttribute('aria-pressed') === 'true';
   await api('/favorites/' + el.dataset.id, { method: on ? 'DELETE' : 'POST' });
-  el.setAttribute('aria-pressed', String(!on)); el.textContent = on ? '♡ Salvar' : '♥ Salvo'; toast(on ? 'Removido dos salvos.' : 'Fornecedor salvo!');
+  el.setAttribute('aria-pressed', String(!on)); toast(on ? t('Removido dos salvos.') : t('Fornecedor salvo!')); if (!on) track('provider_favorited', { id: el.dataset.id });
 });
 const findSvc = (id) => P.categories.flatMap((c) => c.services).find((s) => s.id === Number(id));
+document.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('.svcrow')) { e.preventDefault(); e.target.click(); } });
 
-// detalhe do serviço + seleção de quantidade/adicionais
-function svcDialog(s, mode) {
-  const p = P.provider;
-  openDialog(s.name, html`<form data-form="svc-${mode}" data-id="${s.id}">
-    <img src="${s.images[0] || p.cover_url}" alt="Imagem fictícia de ${s.name}" style="border-radius:12px;margin-bottom:10px;max-height:240px;width:100%;object-fit:cover">
-    <div class="row"><span class="tag ${priceKind(s.price_type)[1]}">${priceKind(s.price_type)[0]}</span>${priceLabel(s)}</div>
+// detalhe do serviço: quantidade, adicionais e ações
+act('svc-open', (el) => {
+  const s = findSvc(el.dataset.id), p = P.provider; if (!s) return;
+  track('service_viewed', { service: s.name, provider: p.name });
+  openDialog(s.name, html`<form data-form="svc-add" data-id="${s.id}">
+    <img src="${s.images[0] || p.cover_url}" alt="${t('Imagem fictícia de {n}', { n: s.name })}" style="border-radius:16px;margin-bottom:12px;max-height:250px;width:100%;object-fit:cover">
+    <div class="row" style="margin-bottom:6px"><span class="tag ${priceKind(s.price_type)[1]}">${priceKind(s.price_type)[0]}</span>${priceLabel(s)}</div>
     <p>${s.description || ''}</p>
-    <dl class="meta" style="margin:0 0 12px"><dt><strong>O que está incluído</strong></dt><dd style="margin:0 0 6px">${s.includes || 'Consulte o fornecedor.'}</dd>
-      <dt><strong>Quantidade mínima / antecedência</strong></dt><dd style="margin:0 0 6px">${s.min_qty} ${s.unit}(s) · ${s.lead_days} dia(s) de antecedência</dd>
-      <dt><strong>Entrega / deslocamento</strong></dt><dd style="margin:0 0 6px">${s.delivery_policy || p.travel_policy || '—'}</dd>
-      <dt><strong>Cancelamento</strong></dt><dd style="margin:0 0 6px">${s.cancel_policy || '—'}</dd></dl>
-    ${s.price_type !== 'orcamento' ? html`${field('Quantidade (' + s.unit + ')', 'qty', { type: 'number', value: s.min_qty, attrs: `min="${s.min_qty}" data-recalc`, required: true })}
-      ${s.options.length ? html`<fieldset style="border:1px solid var(--line);border-radius:10px;margin:10px 0"><legend><strong>Adicionais e personalização</strong></legend>${s.options.map((o) => html`<label class="check"><input type="checkbox" name="opt" value="${o.id}" data-price="${o.price_cents}" data-recalc> <span>${o.name} <strong>+ ${money(o.price_cents)}</strong></span></label>`)}</fieldset>` : ''}
-      <p class="totals"><span class="total" data-est data-unit="${s.price_cents}">Estimativa: ${money(s.price_cents * s.min_qty)}</span><small class="meta">Estimativa. O valor final, com deslocamento e descontos, é calculado pelo sistema antes do pagamento.</small></p>` : html`<div class="notice info">Este serviço é sob orçamento: informe os detalhes e o fornecedor envia uma proposta com valor, validade e condições.</div>`}
-    ${errBox()}<div class="row">${mode === 'hire' ? html`<button class="btn orange" type="submit">Continuar para a contratação</button>` : mode === 'plan' ? html`<button class="btn" type="submit">Escolher evento</button>` : s.price_type === 'orcamento' ? html`<button class="btn orange" type="button" data-act="quote-open" data-service="${s.id}">Pedir orçamento</button>` : html`<button class="btn orange" type="submit">Contratar</button>`}
-    ${mode === 'view' ? html`<button class="btn ghost" type="button" data-act="plan-open" data-id="${s.id}">+ Planejamento</button>` : ''}</div></form>`);
-}
+    <dl class="meta" style="margin:0 0 12px"><dt><strong>${t('O que está incluído')}</strong></dt><dd style="margin:0 0 8px">${s.includes || t('Consulte o fornecedor.')}</dd>
+      <dt><strong>${t('Quantidade mínima e antecedência')}</strong></dt><dd style="margin:0 0 8px">${s.min_qty} ${s.unit} · ${t('{n} dia(s) de antecedência', { n: s.lead_days })}</dd>
+      <dt><strong>${t('Entrega / deslocamento')}</strong></dt><dd style="margin:0 0 8px">${s.delivery_policy || p.travel_policy || '—'}</dd>
+      <dt><strong>${t('Cancelamento')}</strong></dt><dd style="margin:0 0 8px">${s.cancel_policy || '—'}</dd></dl>
+    ${s.price_type !== 'orcamento' ? html`${field(t('Quantidade ({u})', { u: s.unit }), 'qty', { type: 'number', value: s.min_qty, attrs: `min="${s.min_qty}" data-recalc`, required: true })}
+      ${s.options.length ? html`<fieldset style="border:1px solid var(--line);border-radius:14px;margin:12px 0"><legend><strong>${t('Adicionais e personalização')}</strong></legend>${s.options.map((o) => html`<label class="check" style="padding:4px 0"><input type="checkbox" name="opt" value="${o.id}" data-price="${o.price_cents}" data-name="${o.name}" data-recalc> <span>${o.name} <strong>+ ${money(o.price_cents)}</strong></span></label>`)}</fieldset>` : ''}
+      <p class="totals"><span class="total" data-est data-unit="${s.price_cents}">${t('Estimativa')}: ${money(s.price_cents * s.min_qty)}</span><small class="meta">${t('Estimativa. O valor final, com deslocamento e descontos, é calculado pelo sistema antes do pagamento.')}</small></p>`
+    : html`<div class="notice info">${t('Este serviço é sob orçamento: informe os detalhes e o fornecedor envia uma proposta com valor, validade e condições.')}</div>`}
+    ${errBox()}<div class="row">${s.price_type === 'orcamento' ? html`<button class="btn orange" type="button" data-act="quote-open" data-service="${s.id}">${t('Pedir orçamento')}</button>` : html`<button class="btn orange" type="submit">${icon('plus', 18)} ${t('Adicionar ao pedido')}</button>`}
+    <button class="btn ghost" type="button" data-act="plan-open" data-id="${s.id}">${t('+ Planejamento')}</button></div></form>`);
+});
 document.addEventListener('input', (e) => {
   if (!e.target.matches('[data-recalc]')) return;
   const f = e.target.closest('form'), est = f.querySelector('[data-est]'); if (!est) return;
-  const q = Math.max(1, Number(f.elements.qty.value) || 1), opts = [...f.querySelectorAll('input[name=opt]:checked')].reduce((t, o) => t + Number(o.dataset.price), 0);
-  est.textContent = 'Estimativa: ' + money(Number(est.dataset.unit) * q + opts);
+  const q = Math.max(1, Number(f.elements.qty.value) || 1), opts = [...f.querySelectorAll('input[name=opt]:checked')].reduce((s, o) => s + Number(o.dataset.price), 0);
+  est.textContent = t('Estimativa') + ': ' + money(Number(est.dataset.unit) * q + opts);
 });
-act('svc-open', (el) => svcDialog(findSvc(el.dataset.id), 'view'));
-act('hire-open', (el) => svcDialog(findSvc(el.dataset.id), 'hire'));
-act('plan-open', (el) => { if (!state.user) return needLogin(); svcDialog(findSvc(el.dataset.id), 'plan'); });
-const readSel = (f) => ({ qty: Number(f.elements.qty?.value || 1), option_ids: [...f.querySelectorAll('input[name=opt]:checked')].map((o) => Number(o.value)) });
-form('svc-view', (d, f) => form_hire(f)); form('svc-hire', (d, f) => form_hire(f));
-function form_hire(f) {
+const readSel = (f) => { const chk = [...f.querySelectorAll('input[name=opt]:checked')]; return { qty: Number(f.elements.qty?.value || 1), option_ids: chk.map((o) => Number(o.value)), opts_cents: chk.reduce((s, o) => s + Number(o.dataset.price), 0), opt_names: chk.map((o) => o.dataset.name).join(', ') }; };
+form('svc-add', (d, f) => {
   const s = findSvc(f.dataset.id), sel = readSel(f), p = P.provider;
-  const c = state.cart && state.cart.provider_id === p.id ? state.cart : (state.cart = { provider_id: p.id, provider_slug: p.slug, provider_name: p.name, items: [], event_id: null });
-  const ex = c.items.find((i) => i.service_id === s.id); if (ex) Object.assign(ex, sel); else c.items.push({ service_id: s.id, name: s.name, ...sel });
-  store.set('cart', state.cart); closeDialog(); go('#/checkout');
-}
-form('svc-plan', async (d, f) => {
-  const s = findSvc(f.dataset.id), sel = readSel(f);
+  if (state.cart && state.cart.provider_id !== p.id && state.cart.items.length && !confirm(t('Seu pedido atual é de outro fornecedor. Substituir por este?'))) return;
+  const c = cartOf(p) || (state.cart = { provider_id: p.id, provider_slug: p.slug, provider_name: p.name, items: [], event_id: null });
+  const item = { service_id: s.id, name: s.name, unit: s.unit, unit_cents: s.price_cents, ...sel };
+  const ex = c.items.find((i) => i.service_id === s.id); if (ex) Object.assign(ex, item); else c.items.push(item);
+  store.set('cart', state.cart); closeDialog(); refreshCart(); toast(t('Adicionado ao seu pedido!')); track('add_to_cart', { service: s.name, provider: p.name, qty: sel.qty });
+});
+act('cart-remove', (el) => { const c = cartOf(P.provider); c.items.splice(Number(el.dataset.n), 1); store.set('cart', state.cart); refreshCart(); });
+
+// adicionar ao planejamento (evento)
+act('plan-open', async (el) => {
+  if (!state.user) return needLogin();
+  const s = findSvc(el.dataset.id), f = document.querySelector('#dialog form'), sel = f && f.elements.qty ? readSel(f) : { qty: s.min_qty, option_ids: [] };
   const evs = await api('/events');
-  openDialog('Adicionar ao planejamento', html`<p><strong>${s.name}</strong> × ${sel.qty}</p><form data-form="plan-add" data-id="${s.id}" data-qty="${sel.qty}" data-opts="${sel.option_ids.join(',')}">
-    ${evs.length ? field('Em qual festa?', 'event_id', { type: 'select', options: [...evs.map((e) => [e.id, `${e.name}${e.date ? ' · ' + fmtDate(e.date) : ''}`]), ['new', '+ Criar nova festa']] }) : html`<input type="hidden" name="event_id" value="new"><p class="notice info">Você ainda não tem festas. Vamos criar a primeira!</p>`}
-    <div data-newevent>${field('Nome da nova festa', 'name', { placeholder: 'Ex.: Aniversário da Bia' })}${field('Data (opcional)', 'date', { type: 'date', min: today() })}</div>${errBox()}<button class="btn" type="submit">Adicionar</button></form>`);
+  openDialog(t('Adicionar ao planejamento'), html`<p><strong>${s.name}</strong> × ${sel.qty}</p><form class="grid" data-form="plan-add" data-id="${s.id}" data-qty="${sel.qty}" data-opts="${sel.option_ids.join(',')}">
+    ${evs.length ? field(t('Em qual festa?'), 'event_id', { type: 'select', options: [...evs.map((e) => [e.id, `${e.name}${e.date ? ' · ' + fmtDate(e.date) : ''}`]), ['new', t('+ Criar nova festa')]] }) : html`<input type="hidden" name="event_id" value="new"><p class="notice info">${t('Você ainda não tem festas. Vamos criar a primeira!')}</p>`}
+    <div data-newevent ${evs.length ? 'hidden' : ''} class="grid">${field(t('Nome da nova festa'), 'name', { placeholder: t('Ex.: Aniversário da Bia') })}${field(t('Data (opcional)'), 'date', { type: 'date', min: today() })}</div>${errBox()}<button class="btn" type="submit">${t('Adicionar')}</button></form>`);
 });
 form('plan-add', async (d, f) => {
   let eid = d.event_id;
-  if (eid === 'new') { if (!d.name) throw new Error('Dê um nome para a nova festa.'); const s = savedLoc(); eid = (await api('/events', { method: 'POST', body: { name: d.name, date: d.date || null, type: null } })).id; }
+  if (eid === 'new') { if (!d.name) throw new Error(t('Dê um nome para a nova festa.')); eid = (await api('/events', { method: 'POST', body: { name: d.name, date: d.date || null, type: null } })).id; }
   await api(`/events/${eid}/items`, { method: 'POST', body: { service_id: Number(f.dataset.id), qty: Number(f.dataset.qty), option_ids: f.dataset.opts ? f.dataset.opts.split(',').map(Number) : [] } });
-  closeDialog(); toast('Adicionado ao planejamento!'); go('#/eventos/' + eid);
+  closeDialog(); toast(t('Adicionado ao planejamento!')); track('added_to_plan', { event_id: eid }); go('#/eventos/' + eid);
 });
 
 // solicitar orçamento
 act('quote-open', async (el) => {
   if (!state.user) return needLogin();
   const p = P.provider, s = el.dataset.service ? findSvc(el.dataset.service) : null, evs = await api('/events');
-  openDialog(s ? `Orçamento: ${s.name}` : `Falar com ${p.name}`, html`<form data-form="quote" data-provider="${p.id}" data-service="${s?.id || ''}">
-    <p class="meta">O fornecedor responde com uma proposta detalhada (valor, validade e condições). Você também pode conversar por mensagem.</p>
-    ${evs.length ? field('Vincular a uma festa (opcional)', 'event_id', { type: 'select', options: [['', 'Nenhuma'], ...evs.map((e) => [e.id, e.name])] }) : ''}
-    <div class="cols">${field('Data do evento', 'date', { type: 'date', min: today(), required: true, value: new URLSearchParams(location.hash.split('?')[1] || '').get('date') || '' })}${field('Duração', 'duration', { placeholder: 'Ex.: 4 horas' })}${field('Nº de convidados', 'guests', { type: 'number', value: store.get('guests') || '', attrs: 'min="1"' })}</div>
-    ${field('Local do evento (endereço)', 'location', { required: true, placeholder: 'Rua, número, bairro' })}
-    ${field('Cidade', 'city', { type: 'select', value: p.city, options: [...(state.config.cities || []).map((c) => [c.name, `${c.name}/${c.state}`])] })}
-    ${field('Observações', 'notes', { type: 'textarea', placeholder: 'Conte detalhes: tema, referências, restrições…' })}${errBox()}<button class="btn orange" type="submit">Enviar solicitação</button></form>`);
+  openDialog(s ? t('Orçamento: {n}', { n: s.name }) : t('Falar com {n}', { n: p.name }), html`<form class="grid" data-form="quote" data-provider="${p.id}" data-service="${s?.id || ''}">
+    <p class="meta">${t('O fornecedor responde com uma proposta detalhada (valor, validade e condições). Você também pode conversar por mensagem.')}</p>
+    ${evs.length ? field(t('Vincular a uma festa (opcional)'), 'event_id', { type: 'select', options: [['', t('Nenhuma')], ...evs.map((e) => [e.id, e.name])] }) : ''}
+    <div class="cols">${field(t('Data do evento'), 'date', { type: 'date', min: today(), required: true, value: new URLSearchParams(location.hash.split('?')[1] || '').get('date') || '' })}${field(t('Duração'), 'duration', { placeholder: t('Ex.: 4 horas') })}${field(t('Nº de convidados'), 'guests', { type: 'number', value: store.get('guests') || '', attrs: 'min="1"' })}</div>
+    ${field(t('Local do evento (endereço)'), 'location', { required: true, placeholder: t('Rua, número, bairro') })}
+    ${field(t('Cidade'), 'city', { type: 'select', value: p.city, options: (state.config.cities || []).map((c) => [c.name, `${c.name}/${c.state}`]) })}
+    ${field(t('Observações'), 'notes', { type: 'textarea', placeholder: t('Conte detalhes: tema, referências, restrições…') })}${errBox()}<button class="btn orange" type="submit">${t('Enviar solicitação')}</button></form>`);
 });
 form('quote', async (d, f) => {
   const r = await api('/quotes', { method: 'POST', body: { provider_id: Number(f.dataset.provider), service_id: f.dataset.service ? Number(f.dataset.service) : null, event_id: d.event_id ? Number(d.event_id) : null, date: d.date, duration: d.duration, guests: d.guests ? Number(d.guests) : null, location: d.location, city: d.city, notes: d.notes } });
-  closeDialog(); toast(r.availability?.available === false ? 'Solicitação enviada. Atenção: a data pode estar indisponível.' : 'Solicitação enviada! Você será avisado quando houver proposta.'); go('#/orcamentos/' + r.id);
+  track('quote_requested', { provider: P.provider.name });
+  closeDialog(); toast(r.availability?.available === false ? t('Solicitação enviada. Atenção: a data pode estar indisponível.') : t('Solicitação enviada! Você será avisado quando houver proposta.')); go('#/orcamentos/' + r.id);
 });
 
 // ---------------- autenticação ----------------
 route('/entrar', (ctx) => {
-  ctx.title = 'Entrar';
-  return html`<div class="wrap page" style="max-width:460px"><h1>Entrar</h1><form class="card pad grid" data-form="login" data-next="${ctx.query.next || '/'}">${field('E-mail', 'email', { type: 'email', required: true, autocomplete: 'email' })}${field('Senha', 'password', { type: 'password', required: true, autocomplete: 'current-password' })}${errBox()}<button class="btn" type="submit">Entrar</button><p class="meta">Não tem conta? <a href="#/cadastro">Criar conta grátis</a></p></form>
-  <div class="notice info"><strong>Contas de demonstração</strong> (senha <code>agitae123</code>): cliente@agitae.test · doce-sabor-confeitaria@agitae.test · clara-mendes-fotografia@agitae.test · admin@agitae.test</div></div>`;
+  ctx.title = t('Entrar');
+  return html`<div class="wrap page" style="max-width:480px"><h1>${t('Entrar')}</h1><form class="card pad grid" data-form="login" data-next="${ctx.query.next || '/'}">${field(t('E-mail'), 'email', { type: 'email', required: true, autocomplete: 'email' })}${field(t('Senha'), 'password', { type: 'password', required: true, autocomplete: 'current-password' })}${errBox()}<button class="btn" type="submit">${t('Entrar')}</button><p class="meta">${t('Não tem conta?')} <a href="#/cadastro">${t('Criar conta grátis')}</a></p></form>
+  <div class="notice info" style="margin-top:14px"><strong>${t('Contas de demonstração')}</strong> (${t('senha')} <code>agitae123</code>):<br>${t('Cliente')}: cliente@agitae.test<br>${t('Fornecedor')}: doce-sabor-confeitaria@agitae.test · clara-mendes-fotografia@agitae.test<br>${t('Administrador')}: admin@agitae.test</div></div>`;
 });
-form('login', async (d, f) => { await api('/auth/login', { method: 'POST', body: d }); window.dispatchEvent(new Event('agitae:user')); await new Promise((r) => setTimeout(r, 150)); go('#' + f.dataset.next); });
+form('login', async (d, f) => { await api('/auth/login', { method: 'POST', body: d }); track('login'); window.dispatchEvent(new Event('agitae:user')); await new Promise((r) => setTimeout(r, 150)); go('#' + f.dataset.next); });
 route('/cadastro', (ctx) => {
-  ctx.title = 'Criar conta';
-  return html`<div class="wrap page" style="max-width:460px"><h1>Criar conta</h1><form class="card pad grid" data-form="register">${field('Nome completo', 'name', { required: true, autocomplete: 'name' })}${field('E-mail', 'email', { type: 'email', required: true, autocomplete: 'email' })}${field('Telefone (opcional)', 'phone', { type: 'tel', autocomplete: 'tel' })}${field('Senha', 'password', { type: 'password', required: true, hint: 'Mínimo de 8 caracteres.', autocomplete: 'new-password', attrs: 'minlength="8"' })}
-  <label class="check"><input type="checkbox" name="consent" required> <span>Li e aceito a <a href="#/privacidade" target="_blank">Política de Privacidade</a>.</span></label>${errBox()}<button class="btn" type="submit">Criar conta</button><p class="meta">Já tem conta? <a href="#/entrar">Entrar</a> · Quer vender serviços? <a href="#/fornecedor/cadastro">Cadastro de fornecedor</a></p></form></div>`;
+  ctx.title = t('Criar conta');
+  return html`<div class="wrap page" style="max-width:480px"><h1>${t('Criar conta')}</h1><form class="card pad grid" data-form="register">${field(t('Nome completo'), 'name', { required: true, autocomplete: 'name' })}${field(t('E-mail'), 'email', { type: 'email', required: true, autocomplete: 'email' })}${field(t('Telefone (opcional)'), 'phone', { type: 'tel', autocomplete: 'tel' })}${field(t('Senha'), 'password', { type: 'password', required: true, hint: t('Mínimo de 8 caracteres.'), autocomplete: 'new-password', attrs: 'minlength="8"' })}
+  <label class="check"><input type="checkbox" name="consent" required> <span>${t('Li e aceito a')} <a href="#/privacidade" target="_blank">${t('Política de Privacidade')}</a>.</span></label>${errBox()}<button class="btn" type="submit">${t('Criar conta')}</button><p class="meta">${t('Já tem conta?')} <a href="#/entrar">${t('Entrar')}</a> · ${t('Quer vender serviços?')} <a href="#/fornecedor/cadastro">${t('Cadastro de fornecedor')}</a></p></form></div>`;
 });
-form('register', async (d, f) => { await api('/auth/register', { method: 'POST', body: { ...d, consent: f.elements.consent.checked } }); window.dispatchEvent(new Event('agitae:user')); toast('Conta criada! Bem-vindo(a) à Agitaê.'); await new Promise((r) => setTimeout(r, 150)); go('#/'); });
+form('register', async (d, f) => { await api('/auth/register', { method: 'POST', body: { ...d, consent: f.elements.consent.checked } }); track('signup'); window.dispatchEvent(new Event('agitae:user')); toast(t('Conta criada! Bem-vindo(a) à Agitaê.')); await new Promise((r) => setTimeout(r, 150)); go('#/'); });
 
 route('/privacidade', (ctx) => {
-  ctx.title = 'Política de Privacidade';
-  return html`<div class="wrap page" style="max-width:800px"><h1>Política de Privacidade</h1><p class="notice">Modelo de política alinhado à LGPD (Lei 13.709/2018). Revise com assessoria jurídica e preencha os dados do controlador antes de publicar.</p>
-  <h2>Quais dados coletamos</h2><p>Nome, e-mail, telefone (opcional), dados dos eventos que você cria, pedidos, mensagens e avaliações. Não armazenamos dados de cartão: pagamentos são processados pelo provedor de pagamentos.</p>
-  <h2>Para que usamos</h2><p>Para criar sua conta, mostrar fornecedores da sua região, processar pedidos e pagamentos, enviar notificações do pedido e prevenir fraudes. A localização do dispositivo só é usada se você permitir, e apenas para buscar fornecedores próximos.</p>
-  <h2>Com quem compartilhamos</h2><p>O fornecedor que você contrata recebe apenas os dados necessários para atender o pedido (nome, data, local, mensagens). Convidados de um evento veem somente o convite — nunca pedidos, valores ou pagamentos.</p>
-  <h2>Por quanto tempo guardamos</h2><p>Dados da conta: enquanto ela existir. Dados fiscais e financeiros de pedidos: 5 anos, por obrigação legal. Após excluir a conta, dados pessoais são anonimizados.</p>
-  <h2>Seus direitos</h2><p>Você pode acessar, corrigir, exportar (JSON) e excluir seus dados em <a href="#/conta">Minha conta</a>. Dúvidas: privacidade@agitae.com.br <em>(defina o contato do encarregado antes de publicar)</em>.</p>
-  <h2>Cookies</h2><p>Usamos apenas um cookie de sessão essencial para manter você conectado.</p></div>`;
+  ctx.title = t('Política de Privacidade');
+  return html`<div class="wrap page" style="max-width:820px"><h1>${t('Política de Privacidade')}</h1><p class="notice">${t('Modelo de política alinhado à LGPD (Lei 13.709/2018). Revise com assessoria jurídica e preencha os dados do controlador antes de publicar.')}</p>
+  <h2>${t('Quais dados coletamos')}</h2><p>${t('Nome, e-mail, telefone (opcional), dados dos eventos que você cria, pedidos, mensagens e avaliações. Não armazenamos dados de cartão: pagamentos são processados pelo provedor de pagamentos.')}</p>
+  <h2>${t('Para que usamos')}</h2><p>${t('Para criar sua conta, mostrar fornecedores da sua região, processar pedidos e pagamentos, enviar notificações do pedido e prevenir fraudes. A localização do dispositivo só é usada se você permitir, e apenas para buscar fornecedores próximos.')}</p>
+  <h2>${t('Análise de uso')}</h2><p>${t('Podemos usar uma ferramenta de análise de produto (como o Pendo) para entender como o site é usado e melhorá-lo. Nesse caso, enviamos eventos de navegação e um identificador interno do usuário, sem nome nem e-mail.')}</p>
+  <h2>${t('Com quem compartilhamos')}</h2><p>${t('O fornecedor que você contrata recebe apenas os dados necessários para atender o pedido (nome, data, local, mensagens). Convidados de um evento veem somente o convite — nunca pedidos, valores ou pagamentos.')}</p>
+  <h2>${t('Por quanto tempo guardamos')}</h2><p>${t('Dados da conta: enquanto ela existir. Dados fiscais e financeiros de pedidos: 5 anos, por obrigação legal. Após excluir a conta, dados pessoais são anonimizados.')}</p>
+  <h2>${t('Seus direitos')}</h2><p>${t('Você pode acessar, corrigir, exportar (JSON) e excluir seus dados em Minha conta. Dúvidas: privacidade@agitae.com.br (defina o contato do encarregado antes de publicar).')}</p>
+  <h2>${t('Cookies')}</h2><p>${t('Usamos apenas um cookie de sessão essencial para manter você conectado.')}</p></div>`;
 });
 
 // ---------------- convite público ----------------
 route('/convite/:token', async (ctx) => {
   const i = await api('/invites/' + ctx.params.token); ctx.title = i.title;
-  return html`<div class="wrap page" style="max-width:560px;text-align:center"><div class="card pad"><div style="font-size:3rem" aria-hidden="true">🎉</div><h1>${i.title}</h1><p>${i.message || ''}</p><p><strong>${i.name}</strong><br>${i.date ? fmtDate(i.date) : 'Data a confirmar'}${i.city ? ' · ' + i.city : ''}${i.address ? html`<br>${i.address}` : ''}</p>
-  <form class="grid" style="text-align:left" data-form="rsvp" data-token="${ctx.params.token}"><h2>Confirme sua presença</h2>${field('Seu nome', 'name', { required: true })}${field('Você vai?', 'status', { type: 'select', options: [['vou', 'Sim, eu vou! 🎉'], ['talvez', 'Talvez'], ['nao_vou', 'Não poderei ir']] })}${field('Acompanhantes', 'companions', { type: 'number', value: 0, attrs: 'min="0" max="20"' })}${errBox()}<button class="btn orange" type="submit">Enviar resposta</button></form></div></div>`;
+  return html`<div class="wrap page" style="max-width:580px;text-align:center"><div class="card pad"><div style="font-size:3.4rem" aria-hidden="true">🎉</div><h1>${i.title}</h1><p>${i.message || ''}</p><p><strong>${i.name}</strong><br>${i.date ? fmtDate(i.date) : t('Data a confirmar')}${i.city ? ' · ' + i.city : ''}${i.address ? html`<br>${i.address}` : ''}</p>
+  <form class="grid" style="text-align:left" data-form="rsvp" data-token="${ctx.params.token}"><h2>${t('Confirme sua presença')}</h2>${field(t('Seu nome'), 'name', { required: true })}${field(t('Você vai?'), 'status', { type: 'select', options: [['vou', t('Sim, eu vou! 🎉')], ['talvez', t('Talvez')], ['nao_vou', t('Não poderei ir')]] })}${field(t('Acompanhantes'), 'companions', { type: 'number', value: 0, attrs: 'min="0" max="20"' })}${errBox()}<button class="btn orange" type="submit">${t('Enviar resposta')}</button></form></div></div>`;
 });
-form('rsvp', async (d, f) => { await api(`/invites/${f.dataset.token}/rsvp`, { method: 'POST', body: { ...d, companions: Number(d.companions || 0) } }); f.innerHTML = '<div class="notice ok" role="status"><strong>Resposta enviada!</strong> Obrigado por confirmar.</div>'; });
+form('rsvp', async (d, f) => { await api(`/invites/${f.dataset.token}/rsvp`, { method: 'POST', body: { ...d, companions: Number(d.companions || 0) } }); f.innerHTML = `<div class="notice ok" role="status"><strong>${t('Resposta enviada!')}</strong> ${t('Obrigado por confirmar.')}</div>`; });

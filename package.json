@@ -4,12 +4,22 @@
   "description": "Agitaê — marketplace brasileiro de serviços para festas e eventos",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
     "seed": "node server/seed.js --reset",
     "test": "node --test test/*.test.js",
-    "backup": "node scripts/backup.js"
+    "backup": "node scripts/backup.js",
+    "build:demo": "node demo/build.js",
+    "serve:demo": "node demo/serve.js",
+    "publish:demo": "node demo/publish.js"
+  },
+  "devDependencies": {
+    "buffer": "^6.0.3",
+    "esbuild": "^0.28.2",
+    "sql.js": "^1.14.2"
   }
 }

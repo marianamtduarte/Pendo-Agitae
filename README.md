@@ -4,11 +4,15 @@ Marketplace brasileiro para organizar e contratar serviços de festas e eventos.
 
 > Frase: *Organize sua festa de forma rápida e fácil.* · Identidade: azul `#2956D9`, laranja `#FF7C00`.
 
+## Demonstração online (GitHub Pages)
+
+Versão estática, sem servidor — o backend roda no próprio navegador (veja [docs/DEMO.md](docs/DEMO.md)). Idiomas **PT / EN** com seletor no topo.
+
 ## Stack
 
 - **Node.js ≥ 22.13** (testado no 24) — servidor HTTP próprio, **zero dependências npm** (não precisa de `npm install`).
 - **SQLite** embutido (`node:sqlite`) com migrações SQL versionadas (`server/migrations`).
-- **Frontend** em JavaScript puro (ES modules, sem build): SPA com rotas por hash, acessível e responsiva.
+- **Frontend** em JavaScript puro (ES modules, sem build): SPA com rotas por hash, acessível e responsiva, com **português e inglês** (`public/js/en.js`; textos digitados por usuários não são traduzidos).
 
 ## Executar localmente
 
@@ -35,6 +39,8 @@ Todas as imagens são SVGs gerados e marcados como **"Imagem fictícia de demons
 ```bash
 npm test
 ```
+
+Também confere que nenhum texto da interface ou do catálogo ficou sem tradução para inglês.
 
 Sobe a aplicação com banco em memória e percorre as jornadas abaixo pela API real, além de segurança, webhook e reserva duplicada.
 
@@ -68,6 +74,8 @@ Senhas com scrypt; sessões em cookie `HttpOnly`/`SameSite=Lax` (token guardado 
 - [`docs/API.md`](docs/API.md) — endpoints
 - [`docs/PAYMENTS.md`](docs/PAYMENTS.md) — pagamentos: modo teste e o que falta para ativar o real
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — publicação, backups, monitoramento
+- [`docs/DEMO.md`](docs/DEMO.md) — demonstração estática no GitHub Pages
+- [`docs/PENDO.md`](docs/PENDO.md) — instalar o Pendo e eventos já instrumentados
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — o que ainda não está implementado
 
 ## Estrutura
@@ -76,5 +84,6 @@ Senhas com scrypt; sessões em cookie `HttpOnly`/`SameSite=Lax` (token guardado 
 server/       index.js (boot) · app.js (HTTP, sessão, segurança) · routes.js (API) · domain.js (busca, preço, pedidos, pagamentos)
               payments.js · db.js · util.js · seed.js · migrations/*.sql
 public/       index.html · styles.css · js/{core,app,pages-*}.js
-test/         e2e.test.js      scripts/backup.js
+test/         e2e.test.js      scripts/{backup,extract-i18n}.js
+demo/         build.js (gera dist-demo) · entry.js · shims/ · publish.js — demo estática para o GitHub Pages
 ```

@@ -47,13 +47,16 @@ export function buildRoutes(db, { uploadDir }) {
 
   // ===================== imagens fictícias (SVG gerado) =====================
   const EMOJI = { doces: '🧁', salgados: '🥟', bolos: '🎂', buffet: '🍽️', decoracao: '🎈', fotografia: '📸', video: '🎬', dj: '🎧', espaco: '🏡', cerimonial: '💍', recreacao: '🎠', brinquedos: '🏰', lembrancinhas: '🎁', convites: '💌', flores: '💐', bebidas: '🍹', mobiliario: '🪑', iluminacao: '💡', beleza: '💄', seguranca: '🛡️', limpeza: '🧹', transporte: '🚐', pets: '🐶', capa: '🎉' };
+  const HUE = { doces: 335, bolos: 20, buffet: 28, decoracao: 265, fotografia: 215, video: 235, dj: 285, espaco: 150, cerimonial: 340, recreacao: 45, brinquedos: 190, lembrancinhas: 320, convites: 200, flores: 330, bebidas: 170, mobiliario: 30, iluminacao: 50, beleza: 350, seguranca: 220, limpeza: 175, transporte: 210, pets: 25, capa: 225, logo: 225 };
   const image = (url) => {
-    const name = decodeURIComponent(url.pathname.replace('/img/', '').replace(/\.svg$/, '')).slice(0, 60);
+    const name = decodeURIComponent(url.pathname.replace('/img/', '').replace(/\.svg$/, '')).slice(0, 80);
     const h = crypto.createHash('md5').update(name).digest();
-    const hue = (h[0] * 360) / 255, hue2 = (hue + 40 + (h[1] % 60)) % 360;
     const key = Object.keys(EMOJI).find((k) => name.startsWith(k)) || 'capa';
+    const base = ((HUE[key] ?? 225) + (h[0] % 24) - 12 + 360) % 360, h2 = (base + 28 + (h[1] % 30)) % 360;
     const label = (url.searchParams.get('t') || '').slice(0, 40).replace(/[<>&"']/g, '');
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Imagem fictícia de demonstração${label ? ': ' + label : ''}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue.toFixed(0)} 75% 62%)"/><stop offset="1" stop-color="hsl(${hue2.toFixed(0)} 80% 48%)"/></linearGradient></defs><rect width="800" height="500" fill="url(#g)"/><circle cx="650" cy="90" r="120" fill="#fff" opacity=".12"/><circle cx="120" cy="430" r="150" fill="#fff" opacity=".1"/><text x="400" y="270" font-size="150" text-anchor="middle">${EMOJI[key]}</text>${label ? `<text x="400" y="360" font-size="34" font-family="sans-serif" font-weight="700" fill="#fff" text-anchor="middle">${label}</text>` : ''}<text x="400" y="470" font-size="20" font-family="sans-serif" fill="#fff" opacity=".85" text-anchor="middle">Imagem fictícia de demonstração</text></svg>`;
+    const dots = Array.from({ length: 9 }, (_, i) => { const x = 40 + ((h[(i * 3) % 16] * 3 + i * 97) % 720), y = 30 + ((h[(i * 5 + 1) % 16] * 2 + i * 53) % 440), r = 4 + (h[(i + 2) % 16] % 9); return `<circle cx="${x}" cy="${y}" r="${r}" fill="hsl(${(base + i * 40) % 360} 95% 88%)" opacity=".55"/>`; }).join('');
+    const logo = name.startsWith('logo');
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Imagem fictícia · Fictional image${label ? ': ' + label : ''}"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${base.toFixed(0)} 82% 60%)"/><stop offset="1" stop-color="hsl(${h2.toFixed(0)} 78% 42%)"/></linearGradient><radialGradient id="s" cx=".3" cy=".2" r=".9"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient><filter id="d" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#000" flood-opacity=".25"/></filter></defs><rect width="800" height="500" fill="url(#g)"/><rect width="800" height="500" fill="url(#s)"/><circle cx="690" cy="70" r="150" fill="#fff" opacity=".10"/><circle cx="90" cy="450" r="190" fill="#fff" opacity=".09"/><path d="M0 400 C200 340 320 470 520 410 S760 360 800 390 V500 H0Z" fill="#fff" opacity=".10"/>${dots}<g filter="url(#d)"><circle cx="400" cy="${logo ? 250 : 230}" r="${logo ? 150 : 128}" fill="#fff" opacity=".93"/><text x="400" y="${logo ? 305 : 285}" font-size="${logo ? 170 : 150}" text-anchor="middle">${EMOJI[key]}</text></g>${label && !logo ? `<rect x="${400 - Math.min(340, label.length * 15 + 40)}" y="382" width="${Math.min(340, label.length * 15 + 40) * 2}" height="52" rx="26" fill="#fff" opacity=".92"/><text x="400" y="418" font-size="27" font-family="system-ui,sans-serif" font-weight="700" fill="hsl(${base.toFixed(0)} 60% 26%)" text-anchor="middle">${label}</text>` : ''}<text x="400" y="478" font-size="18" font-family="system-ui,sans-serif" fill="#fff" opacity=".8" text-anchor="middle">Imagem fictícia · Fictional image</text></svg>`;
   };
 
   // ===================== config / categorias / localização =====================
@@ -78,6 +81,7 @@ export function buildRoutes(db, { uploadDir }) {
       q: q.q, category: q.category, loc, date: q.date ? date(q.date, 'data') : null, event_type: q.event_type, available: q.available === '1',
       min_price: money$(q.min_price), max_price: money$(q.max_price), min_rating: q.min_rating ? Number(q.min_rating) : 0, sort: q.sort,
     });
+    if (ctx.user) { const fav = new Set(all('SELECT provider_id p FROM favorites WHERE user_id=?', ctx.user.id).map((x) => x.p)); for (const c of results) c.favorite = fav.has(c.id); }
     let empty = null, others = [];
     if (!results.length) {
       empty = loc ? (loc.kind === 'desconhecido' ? 'local_desconhecido' : 'sem_fornecedores_na_regiao') : 'sem_resultados';

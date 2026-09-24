@@ -228,3 +228,41 @@ test('Segurança: CSRF, upload, permissões, LGPD e modo live sem credenciais', 
     assert.equal(paymentMode(), 'live');
   } finally { process.env.PAYMENT_MODE = 'test'; }
 });
+
+test('Idiomas: PT/EN traduzem dados do catálogo, mensagens de erro e notificações', async () => {
+  const v = new Client();
+  const pt = await v.ok('GET', '/api/providers/doce-sabor-confeitaria');
+  const en = await fetch(base + '/api/providers/doce-sabor-confeitaria', { headers: { 'X-Lang': 'en' } }).then((r) => r.json());
+  assert.equal(pt.categories[0].name, 'Doces e salgados');
+  assert.equal(en.categories[0].name, 'Sweets & savory snacks');
+  assert.match(en.provider.description, /Artisanal confectionery/);
+  // erros com valores dinâmicos
+  const r = await fetch(base + '/api/orders/preview', { method: 'POST', headers: { 'X-Requested-With': 'agitae', 'X-Lang': 'en', 'Content-Type': 'application/json', cookie: (await as('cliente@agitae.test')).cookie }, body: JSON.stringify({ provider_id: pt.provider.id, items: [{ service_id: pt.categories.flatMap((c) => c.services).find((x) => x.name.startsWith('Bolo decorado')).id, qty: 1 }] }) });
+  const body = await r.json();
+  assert.equal(r.status, 400); assert.match(body.error, /Minimum quantity for "Decorated cake \(per kg\)": 2\./);
+  // texto digitado por usuário não é alterado; idioma desconhecido cai para PT
+  const ana = await as('cliente@agitae.test');
+  const ev = await ana.ok('POST', '/api/events', { name: 'Festa da Bia' });
+  const list = await fetch(base + '/api/events', { headers: { cookie: ana.cookie, 'X-Lang': 'en' } }).then((x) => x.json());
+  assert.ok(list.some((e) => e.name === 'Festa da Bia' && e.id === ev.id));
+  const xx = await fetch(base + '/api/categories', { headers: { 'X-Lang': 'fr' } }).then((x) => x.json());
+  assert.equal(xx[0].name, 'Doces e salgados');
+  const notifs = await fetch(base + '/api/notifications', { headers: { cookie: ana.cookie, 'X-Lang': 'en' } }).then((x) => x.json());
+  assert.ok(notifs.every((n) => !/Pedido|Pagamento aprovado/.test(n.title)), 'títulos das notificações traduzidos: ' + notifs.map((n) => n.title).join('|'));
+});
+
+test('Cobertura de tradução: interface e catálogo de demonstração não têm textos sem inglês', async () => {
+  const { execFileSync } = await import('node:child_process');
+  execFileSync(process.execPath, ['scripts/extract-i18n.js'], { stdio: 'pipe' }); // falha (exit 1) se faltar alguma chave t('…') em public/js/en.js
+  const { tr } = await import('../server/i18n/index.js');
+  const same = new Set(['100 mini pizzas', 'van', 'Lindo trabalho', 'Buffet', 'Naked cake', 'kit', 'combo', 'show', 'kg', 'Bolo decorado (por kg)']);
+  const missing = [];
+  const check = (s) => { if (s && !same.has(s) && tr(s, 'en') === s) missing.push(s); };
+  for (const c of db.prepare('SELECT name FROM categories').all()) check(c.name);
+  for (const p of db.prepare('SELECT description, hours, travel_policy FROM providers').all()) { check(p.description); check(p.hours); check(p.travel_policy); }
+  for (const s of db.prepare('SELECT name, description, includes, unit, delivery_policy, cancel_policy FROM services').all()) { check(s.name); check(s.description); check(s.includes); check(s.unit); check(s.delivery_policy); check(s.cancel_policy); }
+  for (const o of db.prepare('SELECT name FROM service_options').all()) check(o.name);
+  for (const r of db.prepare('SELECT comment, reply FROM reviews').all()) { check(r.comment); check(r.reply); }
+  for (const b of db.prepare('SELECT title, text FROM banners').all()) { check(b.title); check(b.text); }
+  assert.deepEqual([...new Set(missing)].slice(0, 10), [], 'textos do seed sem tradução');
+});

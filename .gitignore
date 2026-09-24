@@ -3,3 +3,5 @@ node_modules/
 data/*.db*
 data/uploads/
 data/backups/
+dist-demo/
+demo/migrations.generated.js
