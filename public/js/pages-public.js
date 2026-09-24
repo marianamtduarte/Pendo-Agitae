@@ -256,7 +256,7 @@ form('quote', async (d, f) => {
 route('/entrar', (ctx) => {
   ctx.title = t('Entrar');
   return html`<div class="wrap page" style="max-width:480px"><h1>${t('Entrar')}</h1><form class="card pad grid" data-form="login" data-next="${ctx.query.next || '/'}">${field(t('E-mail'), 'email', { type: 'email', required: true, autocomplete: 'email' })}${field(t('Senha'), 'password', { type: 'password', required: true, autocomplete: 'current-password' })}${errBox()}<button class="btn" type="submit">${t('Entrar')}</button><p class="meta">${t('Não tem conta?')} <a href="#/cadastro">${t('Criar conta grátis')}</a></p></form>
-  <div class="notice info" style="margin-top:14px"><strong>${t('Contas de demonstração')}</strong> (${t('senha')} <code>agitae123</code>):<br>${t('Cliente')}: cliente@agitae.test<br>${t('Fornecedor')}: doce-sabor-confeitaria@agitae.test · clara-mendes-fotografia@agitae.test<br>${t('Administrador')}: admin@agitae.test</div></div>`;
+  <div class="notice info" style="margin-top:14px"><strong>${t('Contas de demonstração')}</strong> (${t('senha')} <code>agitae123</code>):<br>${t('Cliente')}: cliente@agitae.test<br>${t('Fornecedor')}: doce-sabor-confeitaria@agitae.test · mariana-teixeira-fotografia@agitae.test<br>${t('Administrador')}: admin@agitae.test</div></div>`;
 });
 form('login', async (d, f) => { await api('/auth/login', { method: 'POST', body: d }); track('login'); window.dispatchEvent(new Event('agitae:user')); await new Promise((r) => setTimeout(r, 150)); go('#' + f.dataset.next); });
 route('/cadastro', (ctx) => {

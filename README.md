@@ -29,7 +29,7 @@ Contas de demonstração (senha **`agitae123`**):
 | Papel | E-mail |
 |---|---|
 | Cliente | `cliente@agitae.test` (também `bruno@…`, `carla@…`) |
-| Fornecedor | `doce-sabor-confeitaria@agitae.test`, `luz-e-cor-fotografia@agitae.test`, `clara-mendes-fotografia@agitae.test`, `cerimonial-encanto@agitae.test` … (um por fornecedor: `<slug>@agitae.test`) |
+| Fornecedor | `doce-sabor-confeitaria@agitae.test`, `luz-e-cor-fotografia@agitae.test`, `mariana-teixeira-fotografia@agitae.test`, `cerimonial-encanto@agitae.test` … (um por fornecedor: `<slug>@agitae.test`) |
 | Administrador | `admin@agitae.test` |
 
 Todas as imagens são SVGs gerados e marcados como **"Imagem fictícia de demonstração"**.
@@ -47,9 +47,9 @@ Sobe a aplicação com banco em memória e percorre as jornadas abaixo pela API 
 ## Jornadas de demonstração
 
 1. **Doces e salgados por local** — na home informe `Mooca` (ou um CEP de São Paulo, como `03101-000`) → categoria *Doces e salgados* → **Doce Sabor Confeitaria** → catálogo completo (doces, bolos e lembrancinhas, com adicionais, mínimo, antecedência e políticas). Tente `Campinas` para ver o estado "ainda não chegamos por aí".
-2. **Fotógrafos disponíveis numa data** — categoria *Fotografia*, local *São Paulo*, data = **hoje + 30 dias**, marque "só disponíveis": *Luz e Cor* aparece ocupada (agenda cheia). Em *Rio de Janeiro*, abra **Clara Mendes** → "Pedir orçamento".
+2. **Fotógrafos disponíveis numa data** — categoria *Fotografia*, local *São Paulo*, data = **hoje + 30 dias**, marque "só disponíveis": *Luz e Cor* aparece ocupada (agenda cheia). Em *Rio de Janeiro*, abra **Mariana Teixeira** → "Pedir orçamento".
 3. **Criar festa e juntar fornecedores** — em qualquer serviço use **+ Planejamento** → nova festa → repita com outros fornecedores → *Meus eventos* mostra total previsto, orçamento, o que falta contratar e convite com RSVP.
-4. **Fornecedor responde orçamento** — entre como `clara-mendes-fotografia@agitae.test` → *Solicitações* → enviar proposta; o cliente vê em *Orçamentos* (com comparação) e aceita.
+4. **Fornecedor responde orçamento** — entre como `mariana-teixeira-fotografia@agitae.test` → *Solicitações* → enviar proposta; o cliente vê em *Orçamentos* (com comparação) e aceita.
 5. **Admin aprova fornecedor** — `admin@agitae.test` → *Fornecedores* → filtro *pendente* → aprovar **Festas do Zé Brinquedos** (passa a aparecer em Campinas); acompanhe pedidos em *Pedidos e disputas*.
 6. **Contratação em ambiente de teste** — contrate um item fechado (ex.: *Brigadeiro gourmet*): cliente envia → fornecedor **aceita** → cliente **paga** (tela de pagamento de teste) → `confirmado` → fornecedor *inicia* e *conclui* → cliente avalia → admin modera e libera repasse.
 

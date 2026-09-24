@@ -60,7 +60,7 @@ const PROVIDERS = [
       S('fotografia', 'Ensaio pré-wedding', 'Ensaio externo com direção de poses.', 'p', 900, 'ensaio', { inc: '2h de ensaio, 40 fotos tratadas', lead: 10 }),
       S('video', 'Vídeo highlights (3 minutos)', 'Filme curto com os melhores momentos da festa.', 'p', 1400, 'vídeo', { inc: 'Captação, edição e trilha licenciada', lead: 15 }),
     ] },
-  { name: 'Clara Mendes Fotografia', city: 'Rio de Janeiro', hood: 'Botafogo', plan: 'basico', verified: 1, cap: 1, notice: 5, travel: 60,
+  { name: 'Mariana Teixeira Fotografia', city: 'Rio de Janeiro', hood: 'Botafogo', plan: 'basico', verified: 1, cap: 1, notice: 5, travel: 60,
     desc: 'Fotógrafa de festas infantis, aniversários e casamentos no Rio e Niterói. Fotos leves, naturais e cheias de emoção.', hours: 'Seg a dom, sob agendamento',
     areas: [A('cidade', { city: 'Rio de Janeiro' }), A('cidade', { city: 'Niterói' })], services: [
       S('fotografia', 'Cobertura de 2 horas', 'Cobertura de festas íntimas e aniversários.', 'f', 590, 'cobertura', { inc: '1 fotógrafa, 80 fotos tratadas', lead: 5, feat: 1 }),

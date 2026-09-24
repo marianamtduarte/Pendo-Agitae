@@ -56,7 +56,7 @@ test('Jornada 1 — doces e salgados por localidade, perfil e catálogo completo
   const none = await v.ok('GET', '/api/search?category=doces-salgados&loc=Campinas');
   assert.equal(none.total, 0); assert.equal(none.empty_reason, 'sem_fornecedores_na_regiao');
   const geo = await v.ok('GET', '/api/search?category=fotografia&lat=-22.9&lng=-43.2');
-  assert.ok(geo.results.some((r) => r.name === 'Clara Mendes Fotografia'));
+  assert.ok(geo.results.some((r) => r.name === 'Mariana Teixeira Fotografia'));
   assert.equal((await v.ok('GET', '/api/search?category=fotografia&loc=zzzz')).empty_reason, 'local_desconhecido');
 });
 
@@ -67,8 +67,8 @@ test('Jornada 2 — comparar fotógrafos por data e solicitar orçamento', async
   const only = await ana.ok('GET', `/api/search?category=fotografia&loc=São Paulo&date=${D30()}&available=1`);
   assert.equal(only.total, 0, 'único fotógrafo de SP está ocupado nessa data');
   const rio = await ana.ok('GET', `/api/search?category=fotografia&loc=Rio de Janeiro&date=${D30()}&available=1&sort=preco_asc`);
-  assert.equal(rio.results[0].name, 'Clara Mendes Fotografia');
-  const clara = await ana.ok('GET', '/api/providers/clara-mendes-fotografia');
+  assert.equal(rio.results[0].name, 'Mariana Teixeira Fotografia');
+  const clara = await ana.ok('GET', '/api/providers/mariana-teixeira-fotografia');
   const q = await ana.ok('POST', '/api/quotes', { provider_id: clara.provider.id, date: D30(), location: 'Salão Aurora, Botafogo', city: 'Rio de Janeiro', duration: '5 horas', guests: 80, notes: 'Casamento civil' });
   assert.ok(q.id && q.availability.available);
   assert.equal((await ana.req('POST', '/api/quotes', { provider_id: clara.provider.id, date: '2020-01-01', location: 'x' })).status, 400);
@@ -104,8 +104,8 @@ test('Jornada 3 — criar festa, itens de fornecedores diferentes e total planej
 });
 
 test('Jornadas 4 e 6 — proposta do fornecedor, aceite, pagamento em modo teste e estados do pedido', async () => {
-  const ana = await as('cliente@agitae.test'), clara = await as('clara-mendes-fotografia@agitae.test');
-  const cp = (await ana.ok('GET', '/api/providers/clara-mendes-fotografia')).provider;
+  const ana = await as('cliente@agitae.test'), clara = await as('mariana-teixeira-fotografia@agitae.test');
+  const cp = (await ana.ok('GET', '/api/providers/mariana-teixeira-fotografia')).provider;
   const { id: qid } = await ana.ok('POST', '/api/quotes', { provider_id: cp.id, date: D30(), location: 'Buffet Central, Niterói', city: 'Niterói', duration: '6h', guests: 100 });
   const inbox = await clara.ok('GET', '/api/provider/quotes');
   assert.ok(inbox.some((q) => q.id === qid && q.status === 'aguardando_resposta'));
