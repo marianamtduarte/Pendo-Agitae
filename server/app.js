@@ -7,7 +7,10 @@ import { localize } from './i18n/index.js';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.ico': 'image/x-icon', '.json': 'application/json', '.txt': 'text/plain; charset=utf-8', '.webmanifest': 'application/manifest+json' };
-const CSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+// Domínios do Pendo liberados para o snippet colado em public/index.html funcionar (veja docs/PENDO.md).
+// Sem o snippet instalado, essas linhas não têm efeito nenhum — remova-as se decidir não usar o Pendo.
+const PENDO = "https://cdn.pendo.io https://app.pendo.io https://data.pendo.io https://pendo-static-6047537168961536.storage.googleapis.com";
+const CSP = `default-src 'self'; img-src 'self' data: ${PENDO}; style-src 'self' 'unsafe-inline' ${PENDO}; script-src 'self' ${PENDO}; connect-src 'self' ${PENDO}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`;
 
 function headers(extra = {}) {
   return { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin', 'Content-Security-Policy': CSP, 'X-Frame-Options': 'DENY', 'Permissions-Policy': 'geolocation=(self), camera=(), microphone=()', ...extra };

@@ -40,8 +40,14 @@ act('demo-reset', () => window.AGITAE_DEMO_RESET && window.AGITAE_DEMO_RESET());
 act('logout', async () => { await api('/auth/logout', { method: 'POST' }); state.user = null; renderChrome(); toast(t('Você saiu da sua conta.')); go('#/'); });
 act('set-lang', async (el) => { setLang(el.dataset.lang); track('language_changed', { lang: el.dataset.lang }); state.config = await api('/config').catch(() => state.config); renderChrome(); render(); });
 form('hsearch', (d) => go('#/busca?q=' + encodeURIComponent(d.q || '')));
-// Ajuda para o Pendo (sem dados pessoais): window.agitaeVisitor() → { id, role }
-window.agitaeVisitor = () => ({ id: state.user ? 'u' + state.user.id : 'anonymous', role: (state.user?.roles || ['visitante']).join(',') });
+// Ajuda para o Pendo (sem dados pessoais): id estável (nunca aleatório), ausente se não logado — o Pendo cuida
+// do visitante anônimo sozinho via cookie. "provider" carrega o plano (tier) do negócio, quando houver.
+window.agitaeVisitor = () => ({
+  id: state.user ? 'u' + state.user.id : null,
+  role: (state.user?.roles || ['visitante']).join(','),
+  provider: state.user?.provider ? { slug: state.user.provider.slug, plan: state.user.provider.plan } : null,
+});
+window.dispatchEvent(new Event('agitae:visitor-ready')); // avisa js/pendo.js (carregado antes deste módulo) que já pode inicializar
 window.addEventListener('agitae:user', refreshUser);
 window.addEventListener('agitae:chrome', renderChrome);
 window.addEventListener('hashchange', () => { render(); });
