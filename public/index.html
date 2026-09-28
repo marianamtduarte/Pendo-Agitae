@@ -21,7 +21,21 @@
         y=e.createElement(n);y.async=!0;y.src='https://cdn.pendo.io/agent/static/'+publicAppId+'/pendo.js';
         z=e.getElementsByTagName(n)[0];z.parentNode.insertBefore(y,z);})(window,document,'script','pendo');
 })('b2ec970a-20e0-471c-b7c3-9b9686fad78e');
-</script>
+<script>
+  var v = window.agitaeVisitor(); // { id: 'u123'|null, role: 'cliente,fornecedor'|'visitante', provider: {slug, plan}|null }
+  pendo.initialize({
+    visitor: {
+      id: v.id || undefined, // ausente para anônimo → Pendo cuida do ID anônimo sozinho
+      role: v.role,
+    },
+    account: v.provider ? {
+      id: v.provider.slug,        // um "account" por negócio de fornecedor
+      planLevel: v.provider.plan, // 'basico' ou 'premium'
+    } : undefined, // cliente puro não tem "conta" de negócio — omite
+  });
+  window.addEventListener('agitae:user', function () {
+    setTimeout(function () { var v = window.agitaeVisitor(); pendo.identify({ visitor: { id: v.id || undefined, role: v.role }, account: v.provider ? { id: v.provider.slug, planLevel: v.provider.plan } : undefined }); }, 300);
+  });
 </head>
 <body>
   <a class="skip" href="#main">Ir para o conteúdo / Skip to content</a>
