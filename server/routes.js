@@ -11,7 +11,6 @@ import {
   orderFromProposal, startPayment, refundPolicyCents, refundOrder, processPaymentEvent, completeOrder, setStatus, addHistory, eventSummary,
 } from './domain.js';
 import { paymentMode, verifySignature } from './payments.js';
-import { chatWithAssistant } from './assistant.js';
 
 const EVENT_TYPES = ['aniversario', 'casamento', 'infantil', 'formatura', 'confraternizacao', 'cha', 'corporativo', 'outro'];
 const parseJson = (s, d = []) => { try { return JSON.parse(s); } catch { return d; } };
@@ -509,14 +508,6 @@ export function buildRoutes(db, { uploadDir }) {
     if (/^\/(uploads|img)\/[\w.\-?=%&]+$/.test(u) || (allowExternal && /^https:\/\/[^\s"'<>]+$/.test(u))) return u;
     throw bad('Endereço de mídia inválido. Envie uma imagem pela plataforma ou use um link https para vídeo.');
   };
-
-  // ===================== assistente (chat) =====================
-  // Público (funciona para visitante não logado); a chave da IA fica só no servidor (server/assistant.js).
-  r('POST', '/api/assistant/message', { limit: { key: 'assistant', max: 20 } }, async (ctx) => {
-    const lang = ctx.req.headers['x-lang'] === 'en' ? 'en' : 'pt';
-    const out = await chatWithAssistant(db, { conversationId: ctx.body.conversation_id, message: ctx.body.message, lang, userId: ctx.user?.id ?? null });
-    ctx.status = 201; return out;
-  });
 
   // ===================== fornecedor: cadastro e painel =====================
   const uniqueSlug = (name) => { let base = slugify(name) || 'fornecedor', s = base, n = 1; while (get('SELECT 1 FROM providers WHERE slug=?', s)) s = `${base}-${++n}`; return s; };

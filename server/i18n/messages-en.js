@@ -87,12 +87,6 @@ export default {
   'Envie uma imagem JPG, PNG ou WebP.': 'Upload a JPG, PNG or WebP image.', 'Arquivo vazio.': 'Empty file.', 'O conteúdo do arquivo não corresponde a uma imagem válida.': 'The file content is not a valid image.',
   'Endereço de mídia inválido. Envie uma imagem pela plataforma ou use um link https para vídeo.': 'Invalid media address. Upload an image through the platform or use an https link for video.',
   'Uploads não estão disponíveis na versão de demonstração online. Cole o endereço (URL) de uma imagem.': 'Uploads are not available in the online demo. Paste an image URL instead.',
-  'O assistente por chat precisa de um servidor (chama uma IA com uma chave que não pode ficar no navegador). Disponível na versão com servidor — veja docs/ASSISTANT.md.': 'The chat assistant needs a server (it calls an AI with a key that cannot live in the browser). Available in the server-hosted version — see docs/ASSISTANT.md.',
-  'Assistente ainda não configurado: defina ANTHROPIC_API_KEY (veja docs/ASSISTANT.md).': 'Assistant not configured yet: set ANTHROPIC_API_KEY (see docs/ASSISTANT.md).',
-  'Não foi possível falar com o assistente agora. Tente novamente em instantes.': 'Could not reach the assistant right now. Please try again shortly.',
-  'O assistente está indisponível no momento. Tente novamente em instantes.': 'The assistant is unavailable right now. Please try again shortly.',
-  'Esta conversa ficou muito longa. Comece uma nova.': 'This conversation got too long. Please start a new one.',
-  'conversa': 'conversation',
 
   // fornecedor
   'Você já possui um cadastro de fornecedor.': 'You already have a provider registration.', 'Novo fornecedor aguardando aprovação': 'New provider awaiting approval', '{0} ({1}) enviou o cadastro.': '{0} ({1}) submitted a registration.',

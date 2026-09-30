@@ -164,17 +164,3 @@ table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:12px 14p
 .hsearch{min-width:170px}.header .wrap{flex-wrap:nowrap}.hlinks{flex-shrink:0}@media(max-width:899px){.locpill{flex-shrink:1}}
 .searchbox .field label .meta{text-transform:none;letter-spacing:0;font-weight:500}
 @media(max-width:720px){.header .wrap{flex-wrap:wrap;gap:8px 10px;padding:8px 14px;min-height:0}.logo{font-size:1.3rem}.logo svg{width:30px;height:30px}.locpill{order:5;flex:1 1 100%;max-width:none;justify-content:flex-start}.hlinks{margin-left:auto;gap:6px}.hlinks .btn.sm{padding:5px 11px}.wrap{padding-left:14px;padding-right:14px}.page{padding-left:14px;padding-right:14px}.stickytabs{margin-left:-14px;margin-right:-14px;padding:0 14px}.stickytabs{top:96px}}
-
-/* ===== assistente (chat) ===== */
-.assist-fab{position:fixed;right:20px;bottom:24px;z-index:55;width:56px;height:56px;border-radius:50%;background:var(--blue);color:#fff;border:0;box-shadow:var(--shadow-lg);display:grid;place-items:center;cursor:pointer;font-size:1.3rem}
-.assist-fab:hover{background:var(--blue-700)}
-.assist-panel{position:fixed;right:20px;bottom:90px;z-index:55;width:min(370px,calc(100vw - 32px));max-height:min(560px,calc(100vh - 150px));background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg);display:flex;flex-direction:column;overflow:hidden}
-.assist-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
-.assist-body{flex:1;overflow:auto;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
-.assist-form{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line);background:#fff}
-.assist-form input{flex:1}
-.assist-cards{display:flex;flex-direction:column;gap:8px}
-.assist-card{display:flex;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px;text-decoration:none;color:inherit}
-.assist-card:hover{border-color:var(--blue)}
-.assist-card img{width:56px;height:56px;border-radius:8px;object-fit:cover;flex:none;background:var(--blue-50)}
-@media(max-width:720px){.assist-fab{bottom:78px}.assist-panel{bottom:144px}}

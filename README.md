@@ -75,16 +75,15 @@ Senhas com scrypt; sessões em cookie `HttpOnly`/`SameSite=Lax` (token guardado 
 - [`docs/PAYMENTS.md`](docs/PAYMENTS.md) — pagamentos: modo teste e o que falta para ativar o real
 - [`docs/DEPLOY.md`](docs/DEPLOY.md) — publicação, backups, monitoramento
 - [`docs/DEMO.md`](docs/DEMO.md) — demonstração estática no GitHub Pages
-- [`docs/ASSISTANT.md`](docs/ASSISTANT.md) — assistente de chat (IA) que sugere fornecedores reais do catálogo
-- [`docs/PENDO.md`](docs/PENDO.md) — instalar o Pendo, eventos já instrumentados e Agent Analytics
+- [`docs/PENDO.md`](docs/PENDO.md) — instalar o Pendo e eventos já instrumentados
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) — o que ainda não está implementado
 
 ## Estrutura
 
 ```
 server/       index.js (boot) · app.js (HTTP, sessão, segurança) · routes.js (API) · domain.js (busca, preço, pedidos, pagamentos)
-              payments.js · assistant.js (chat com IA) · db.js · util.js · seed.js · migrations/*.sql
-public/       index.html · styles.css · js/{core,app,pendo,assistant,pages-*}.js
+              payments.js · db.js · util.js · seed.js · migrations/*.sql
+public/       index.html · styles.css · js/{core,app,pages-*}.js
 test/         e2e.test.js      scripts/{backup,extract-i18n}.js
 demo/         build.js (gera dist-demo) · entry.js · shims/ · publish.js — demo estática para o GitHub Pages
 ```

@@ -37,10 +37,6 @@ O site chama `window.pendo.track(nome, props)` (só quando o Pendo está carrega
 
 Para adicionar outro: `track('nome_do_evento', { chave: 'valor' })` (importe `track` de `js/core.js`).
 
-## 3. Agent Analytics (assistente de chat)
-
-O site tem um assistente de chat de verdade (IA), documentado em [docs/ASSISTANT.md](ASSISTANT.md) — inclusive os valores para preencher o formulário "Add agent" do Pendo. Use aquele guia para essa parte; esta página cobre só a instalação geral do snippet e os eventos de produto.
-
-## 4. Cuidados
+## 3. Cuidados
 - **LGPD**: a Política de Privacidade já cita o uso de ferramenta de análise. Considere um aviso de consentimento antes de carregar o Pendo e não envie dados pessoais (nome, e-mail, endereço).
 - **Servidor Node (não é o GitHub Pages)**: a política de segurança (CSP) em `server/app.js` bloqueia scripts externos. Inclua os domínios do Pendo em `script-src`, `connect-src`, `img-src` e `style-src` (veja a lista oficial: https://support.pendo.io). O GitHub Pages não aplica essa CSP.
