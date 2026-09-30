@@ -3,11 +3,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build } from 'esbuild';
+import { execFileSync } from 'node:child_process';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const out = path.join(root, 'dist-demo'), here = (p) => path.join(root, 'demo', p);
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
+
+// mantém o catálogo do Worker do assistente (worker/catalog.generated.json) em dia com o seed atual
+execFileSync(process.execPath, [path.join(root, 'worker/build-catalog.mjs')], { stdio: 'inherit' });
 
 // migrações do banco embutidas como texto
 const migs = fs.readdirSync(path.join(root, 'server/migrations')).filter((f) => f.endsWith('.sql')).sort();

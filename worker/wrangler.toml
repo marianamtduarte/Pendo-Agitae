@@ -1,0 +1,12 @@
+# Configuração do Cloudflare Worker do assistente (só para a demo estática do GitHub Pages).
+# Publicar: dentro de worker/, rode `npx wrangler deploy`. Veja docs/ASSISTANT.md para o passo a passo completo.
+name = "agitae-assistant"
+main = "assistant-worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Domínios que podem chamar este Worker (separados por vírgula). Ajuste se seu GitHub Pages tiver outro domínio.
+ALLOWED_ORIGINS = "https://marianamtduarte.github.io,http://localhost:4173,http://localhost:3000"
+
+# ANTHROPIC_API_KEY é um "secret" (nunca fica neste arquivo nem no repositório):
+#   npx wrangler secret put ANTHROPIC_API_KEY

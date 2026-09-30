@@ -5,3 +5,4 @@ data/uploads/
 data/backups/
 dist-demo/
 demo/migrations.generated.js
+worker/catalog.generated.json
