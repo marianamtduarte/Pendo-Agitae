@@ -49,6 +49,7 @@ async function handle({ method, path, body, lang }) {
     if (route.opts.auth && !user) throw new HttpError(401, 'Entre na sua conta para continuar.');
     if (route.opts.roles && !route.opts.roles.some((r) => user.roles.includes(r))) throw new HttpError(403, 'Você não tem permissão para isso.');
     if (url.pathname === '/api/uploads') throw new HttpError(400, 'Uploads não estão disponíveis na versão de demonstração online. Cole o endereço (URL) de uma imagem.');
+    if (url.pathname === '/api/assistant/message') throw new HttpError(503, 'O assistente por chat precisa de um servidor (chama uma IA com uma chave que não pode ficar no navegador). Disponível na versão com servidor — veja docs/ASSISTANT.md.');
     if (route.opts.webhook) throw new HttpError(404, 'Não encontrado.');
     const ctx = { db, req: { headers: { cookie: token ? `agitae_sid=${token}` : '' } }, res: null, user, params: route.params, query: Object.fromEntries(url.searchParams), body: clone(body), raw: null, ip: 'demo', status: 200, headers: {} };
     const out = await route.handler(ctx);

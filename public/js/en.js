@@ -832,4 +832,11 @@ export default {
   "Enviar resposta": "Send reply",
   "Resposta enviada!": "Reply sent!",
   "Obrigado por confirmar.": "Thanks for confirming.",
+  "Fechar assistente": "Close assistant",
+  "Abrir assistente de festas": "Open party assistant",
+  "Assistente da Agitaê": "Agitaê assistant",
+  "Me conte sobre sua festa — eu ajudo a achar fornecedores no catálogo.": "Tell me about your party — I'll help you find providers in the catalog.",
+  "Ex.: \"bolo para 20 pessoas em São Paulo\" ou \"fotógrafo disponível dia 20/12\".": "E.g.: \"cake for 20 people in São Paulo\" or \"photographer available on 12/20\".",
+  "Digitando…": "Typing…",
+  "Mensagem para o assistente": "Message to the assistant",
 };

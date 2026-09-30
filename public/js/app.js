@@ -1,6 +1,7 @@
 import { api, state, html, raw, render, markNav, act, form, toast, go, t, icon, track } from './core.js';
 import { lang, setLang } from './i18n.js';
 import { locLabel } from './loc.js';
+import { mountAssistant, refreshAssistant } from './assistant.js';
 import './pages-public.js';
 import './pages-client.js';
 import './pages-provider.js';
@@ -38,7 +39,7 @@ export function renderChrome() {
 export async function refreshUser() { try { state.user = (await api('/me')).user; } catch { state.user = null; } renderChrome(); }
 act('demo-reset', () => window.AGITAE_DEMO_RESET && window.AGITAE_DEMO_RESET());
 act('logout', async () => { await api('/auth/logout', { method: 'POST' }); state.user = null; renderChrome(); toast(t('Você saiu da sua conta.')); go('#/'); });
-act('set-lang', async (el) => { setLang(el.dataset.lang); track('language_changed', { lang: el.dataset.lang }); state.config = await api('/config').catch(() => state.config); renderChrome(); render(); });
+act('set-lang', async (el) => { setLang(el.dataset.lang); track('language_changed', { lang: el.dataset.lang }); state.config = await api('/config').catch(() => state.config); renderChrome(); render(); refreshAssistant(); });
 form('hsearch', (d) => go('#/busca?q=' + encodeURIComponent(d.q || '')));
 // Ajuda para o Pendo (sem dados pessoais): id estável (nunca aleatório), ausente se não logado — o Pendo cuida
 // do visitante anônimo sozinho via cookie. "provider" carrega o plano (tier) do negócio, quando houver.
@@ -55,3 +56,4 @@ document.addEventListener('click', (e) => { document.querySelectorAll('details.m
 await Promise.all([api('/config').then((c) => (state.config = c)).catch(() => { state.config = { categories: [], cities: [], event_types: [] }; }), refreshUser()]);
 renderChrome();
 render();
+mountAssistant();

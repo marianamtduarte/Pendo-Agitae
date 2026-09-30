@@ -266,3 +266,18 @@ test('Cobertura de tradução: interface e catálogo de demonstração não têm
   for (const b of db.prepare('SELECT title, text FROM banners').all()) { check(b.title); check(b.text); }
   assert.deepEqual([...new Set(missing)].slice(0, 10), [], 'textos do seed sem tradução');
 });
+
+test('Assistente: nunca responde sem a chave configurada, nunca inventa fornecedor', async () => {
+  const v = new Client();
+  assert.equal(process.env.ANTHROPIC_API_KEY, undefined, 'este teste pressupõe ambiente sem chave configurada');
+  const r = await v.req('POST', '/api/assistant/message', { message: 'quero um bolo em São Paulo' });
+  assert.equal(r.status, 503); assert.match(r.body.error, /ANTHROPIC_API_KEY/);
+  // idem em inglês
+  const en = await fetch(base + '/api/assistant/message', { method: 'POST', headers: { 'X-Requested-With': 'agitae', 'X-Lang': 'en', 'Content-Type': 'application/json' }, body: JSON.stringify({ message: 'I need a cake' }) });
+  assert.equal(en.status, 503); assert.match((await en.json()).error, /not configured/);
+  // validações continuam antes de qualquer chamada externa
+  assert.equal((await v.req('POST', '/api/assistant/message', { message: '' })).status, 503, 'sem chave, recusa antes de validar corpo');
+  assert.equal((await v.req('POST', '/api/assistant/message', { message: 'x', conversation_id: 'inexistente-123' })).status, 503);
+  // funciona para visitante não logado (não exige auth)
+  assert.notEqual(r.status, 401);
+});
