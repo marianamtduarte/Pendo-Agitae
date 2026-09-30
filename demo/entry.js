@@ -7,6 +7,7 @@ import { localize } from '../server/i18n/index.js';
 import { HttpError, sha256 } from '../server/util.js';
 import { MIGRATIONS } from './migrations.generated.js';
 import { SqlDb } from './sqldb.js';
+import { ASSISTANT_WORKER_URL } from './config.js';
 
 const KEY = 'agitae.demo.db', SID = 'agitae.demo.sid', BUILD = String(__BUILD_ID__);
 const $main = document.getElementById('main');
@@ -33,6 +34,30 @@ let timer; const persistSoon = () => { clearTimeout(timer); timer = setTimeout(p
 
 const routes = buildRoutes(db, { uploadDir: '' });
 
+// Assistente (chat) na demo: o servidor real chama a IA direto (server/assistant.js); aqui, sem servidor
+// próprio, proxy para um Cloudflare Worker que guarda a chave (veja demo/config.js e docs/ASSISTANT.md).
+// O Worker não guarda conversa nenhuma — por isso o histórico é mantido aqui e reenviado a cada mensagem.
+const ASSIST_KEY = 'agitae.demo.assistant';
+const loadAssistHistories = () => { try { return JSON.parse(localStorage.getItem(ASSIST_KEY) || '{}'); } catch { return {}; } };
+const saveAssistHistories = (h) => { try { localStorage.setItem(ASSIST_KEY, JSON.stringify(h)); } catch {} };
+async function proxyAssistant(body, lang) {
+  if (!ASSISTANT_WORKER_URL) throw new HttpError(503, 'O assistente por chat precisa de um servidor (chama uma IA com uma chave que não pode ficar no navegador). Disponível na versão com servidor — veja docs/ASSISTANT.md.');
+  const message = String(body?.message || '').slice(0, 800).trim();
+  if (!message) throw new HttpError(400, 'Escreva uma mensagem.');
+  const histories = loadAssistHistories();
+  let convId = body?.conversation_id;
+  if (!convId || !histories[convId]) { convId = convId || (crypto.randomUUID ? crypto.randomUUID() : Date.now() + '-' + Math.random().toString(36).slice(2)); histories[convId] = []; }
+  const history = histories[convId].slice(-20);
+  let res;
+  try { res = await fetch(ASSISTANT_WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, lang, history }) }); }
+  catch { throw new HttpError(502, 'Não foi possível falar com o assistente agora. Tente novamente em instantes.'); }
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data) throw new HttpError(res.status || 502, data?.error || 'O assistente está indisponível no momento. Tente novamente em instantes.');
+  histories[convId] = [...history, { role: 'user', content: message }, { role: 'assistant', content: data.reply }].slice(-20);
+  saveAssistHistories(histories);
+  return { conversation_id: convId, reply: data.reply, providers: data.providers || [] };
+}
+
 function session(token) {
   if (!token) return null;
   const row = db.prepare("SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=? AND s.expires_at>datetime('now') AND u.deleted_at IS NULL").get(sha256(token));
@@ -49,7 +74,7 @@ async function handle({ method, path, body, lang }) {
     if (route.opts.auth && !user) throw new HttpError(401, 'Entre na sua conta para continuar.');
     if (route.opts.roles && !route.opts.roles.some((r) => user.roles.includes(r))) throw new HttpError(403, 'Você não tem permissão para isso.');
     if (url.pathname === '/api/uploads') throw new HttpError(400, 'Uploads não estão disponíveis na versão de demonstração online. Cole o endereço (URL) de uma imagem.');
-    if (url.pathname === '/api/assistant/message') throw new HttpError(503, 'O assistente por chat precisa de um servidor (chama uma IA com uma chave que não pode ficar no navegador). Disponível na versão com servidor — veja docs/ASSISTANT.md.');
+    if (url.pathname === '/api/assistant/message') { const out = await proxyAssistant(body, lang); return { status: 201, data: clone(localize(out, lang)) }; }
     if (route.opts.webhook) throw new HttpError(404, 'Não encontrado.');
     const ctx = { db, req: { headers: { cookie: token ? `agitae_sid=${token}` : '' } }, res: null, user, params: route.params, query: Object.fromEntries(url.searchParams), body: clone(body), raw: null, ip: 'demo', status: 200, headers: {} };
     const out = await route.handler(ctx);

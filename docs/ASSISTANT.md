@@ -27,6 +27,40 @@ Reinicie o servidor (`npm start`). Teste clicando no botão de chat (canto infer
 - Mensagem: até 800 caracteres. Conversa: até 12 idas e vindas (24 mensagens) — depois disso, pede para começar uma nova.
 - Até 3 chamadas de ferramenta por mensagem (evita loop e custo excessivo).
 
+## Fazer funcionar na demonstração estática (GitHub Pages)
+
+O GitHub Pages não tem servidor, então a chave não pode morar lá. A solução é um **Cloudflare Worker** — uma função pequena, gratuita para este volume, que guarda a chave com segurança e é a única coisa que fica fora do GitHub Pages. Está tudo pronto em [`worker/`](../worker); falta só publicar (uma vez) na sua conta.
+
+```bash
+# 1. Gere o retrato do catálogo que o Worker usa para não inventar fornecedor (repita sempre que o seed mudar)
+node worker/build-catalog.mjs
+
+# 2. Entre na pasta do Worker e publique (pede login do Cloudflare na primeira vez — plano gratuito serve)
+cd worker
+npx wrangler login
+npx wrangler deploy
+
+# 3. Guarde a chave da Anthropic como "secret" do Worker — NUNCA vai para o código nem para o GitHub
+npx wrangler secret put ANTHROPIC_API_KEY
+# cole a chave quando for pedido; ela fica só na Cloudflare, criptografada
+```
+
+O passo 2 termina mostrando uma URL parecida com `https://agitae-assistant.SEU-USUARIO.workers.dev`. Copie essa URL (ela não é secreta) e me envie, ou cole você mesma em [`demo/config.js`](../demo/config.js):
+
+```js
+export const ASSISTANT_WORKER_URL = 'https://agitae-assistant.SEU-USUARIO.workers.dev';
+```
+
+Depois publique o site de novo:
+
+```bash
+npm run publish:demo
+```
+
+**Limites dessa versão (só na demo estática)**: o Worker não tem banco de dados — ele responde com um retrato fixo do catálogo de demonstração (gerado no passo 1), então não enxerga mudanças feitas ao vivo no seu navegador (ex.: um fornecedor que você aprovou localmente). Também não filtra por data/disponibilidade. O histórico da conversa fica no `localStorage` do seu navegador (não no Worker), por isso funciona entre mensagens mas não é compartilhado entre dispositivos. Sem limite de uso configurado além do que o próprio Cloudflare oferece — se quiser reforçar contra abuso, no painel do Worker (*Settings → Triggers → Rate limiting*) dá para limitar por IP.
+
+O servidor de verdade (`npm start`) não usa nada disso — ele sempre chamou a IA diretamente com dados reais e atualizados.
+
 ## Pendo — Agent Analytics
 
 O Pendo tem um recurso específico para acompanhar conversas de agentes de IA (**Agent Analytics**, veja [docs/PENDO.md](PENDO.md) para a instalação geral do Pendo). Ele exige um agente de IA de verdade no produto — agora existe um. Ao cadastrar o agente em *Pendo → Agent Analytics → Add agent*, use:
